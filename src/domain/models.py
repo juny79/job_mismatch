@@ -52,10 +52,22 @@ class JobPosting:
     role_category: str
     raw_text: str
     salary: Salary
+    source_record_id: str = ""
+    source_url: str = ""
+    posted_at: str = ""
+    expires_at: str = ""
+    company_id: str = ""
+    company_name: str = ""
+    region_raw: str = ""
+    role_raw: str = ""
     required_skills: tuple[str, ...] = field(default_factory=tuple)
     benefits: tuple[str, ...] = field(default_factory=tuple)
     evidence: tuple[Evidence, ...] = field(default_factory=tuple)
     review_status: str = "pending"
+    reviewer: str = ""
+    reviewed_at: str = ""
+    data_version: str = ""
+    transform_version: str = ""
     synthetic: bool = False
 
     @classmethod
@@ -69,10 +81,22 @@ class JobPosting:
             region=str(value.get("region", "")),
             role_category=str(value.get("role_category", "")),
             raw_text=str(value.get("raw_text", "")),
+            source_record_id=str(value.get("source_record_id", "")),
+            source_url=str(value.get("source_url", "")),
+            posted_at=str(value.get("posted_at", "")),
+            expires_at=str(value.get("expires_at", "")),
+            company_id=str(value.get("company_id", "")),
+            company_name=str(value.get("company_name", "")),
+            region_raw=str(value.get("region_raw", "")),
+            role_raw=str(value.get("role_raw", "")),
             salary=Salary.from_dict(value.get("salary", {})),
             required_skills=tuple(value.get("required_skills", [])),
             benefits=tuple(value.get("benefits", [])),
             evidence=tuple(Evidence.from_dict(item) for item in value.get("evidence", [])),
             review_status=str(value.get("review_status", "pending")),
+            reviewer=str(value.get("reviewer", "")),
+            reviewed_at=str(value.get("reviewed_at", "")),
+            data_version=str(value.get("data_version", "")),
+            transform_version=str(value.get("transform_version", "")),
             synthetic=bool(value.get("synthetic", False)),
         )

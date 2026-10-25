@@ -1,16 +1,18 @@
-import json
+import csv
 import tempfile
 import unittest
 from pathlib import Path
 
 from src.ingestion.jsonl import load_jsonl
+from src.ingestion.quality import quality_report
+from src.ingestion.source_registry import REQUIRED_COLUMNS, validate_source_registry
 from src.retrieval.search import search, summary
 
 
 class PoCTests(unittest.TestCase):
     def setUp(self):
         path = Path(__file__).parents[1] / "data" / "demo_jobs.jsonl"
-        self.postings, self.rejected = load_jsonl(path)
+        self.postings, self.rejected = load_jsonl(path, allow_synthetic=True)
 
     def test_demo_fixture_is_explicitly_synthetic(self):
         self.assertEqual([], self.rejected)
@@ -33,10 +35,68 @@ class PoCTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp_dir:
             candidate = Path(temp_dir) / "input.jsonl"
             candidate.write_text("\n".join([lines[0], lines[0], "{bad json", "[]"]) + "\n", encoding="utf-8")
-            accepted, rejected = load_jsonl(candidate)
+            accepted, rejected = load_jsonl(candidate, allow_synthetic=True)
         self.assertEqual(1, len(accepted))
         self.assertEqual(3, len(rejected))
         self.assertIn("duplicate posting_id", rejected[0]["errors"])
+
+    def test_synthetic_records_are_rejected_without_explicit_opt_in(self):
+        path = Path(__file__).parents[1] / "data" / "demo_jobs.jsonl"
+        postings, rejected = load_jsonl(path)
+        self.assertEqual([], postings)
+        self.assertEqual(3, len(rejected))
+        self.assertTrue(all("synthetic record requires" in error for row in rejected for error in row["errors"]))
+
+    def test_source_registry_fails_closed_and_accepts_explicit_approval(self):
+        approved_row = {
+            "source_id": "SRC-1",
+            "source_name": "Test source",
+            "source_url": "https://example.invalid/jobs",
+            "data_owner": "Data owner",
+            "permission_reference": "approval-123",
+            "collection_allowed": "yes",
+            "redistribution_allowed": "no",
+            "external_processing_allowed": "no",
+            "retention_days": "30",
+            "approved_by": "Approver",
+            "approved_at": "2025-01-01",
+            "status": "approved",
+            "notes": "test only",
+        }
+        with tempfile.TemporaryDirectory() as temp_dir:
+            registry = Path(temp_dir) / "registry.csv"
+            with registry.open("w", encoding="utf-8", newline="") as stream:
+                writer = csv.DictWriter(stream, fieldnames=sorted(REQUIRED_COLUMNS | {"notes"}))
+                writer.writeheader()
+                writer.writerow(approved_row)
+            approved, errors = validate_source_registry(registry)
+        self.assertEqual({"SRC-1"}, approved)
+        self.assertEqual([], errors)
+
+        approved_row["collection_allowed"] = "unknown"
+        with tempfile.TemporaryDirectory() as temp_dir:
+            registry = Path(temp_dir) / "registry.csv"
+            with registry.open("w", encoding="utf-8", newline="") as stream:
+                writer = csv.DictWriter(stream, fieldnames=sorted(REQUIRED_COLUMNS | {"notes"}))
+                writer.writeheader()
+                writer.writerow(approved_row)
+            approved, errors = validate_source_registry(registry)
+        self.assertEqual(set(), approved)
+        self.assertTrue(errors)
+
+    def test_quality_report_keeps_denominators_and_rejection_reasons(self):
+        report = quality_report(self.postings, self.rejected)
+        self.assertEqual(3, report["valid_records"])
+        self.assertEqual(2, report["approved_records"])
+        self.assertEqual(3, report["approved_record_denominator"])
+        self.assertEqual(1, report["pending_records"])
+        self.assertEqual(3, report["processed_records"])
+        self.assertEqual(
+            {"present": 3, "missing": 0, "denominator": 3},
+            report["field_completeness"]["title"],
+        )
+        self.assertEqual(0, report["evidence_coverage_record_denominator"])
+        self.assertEqual({}, report["evidence_coverage"])
 
     def test_source_evidence_is_returned_for_search_hits(self):
         hits = search(self.postings, "ROS2", region="경남")
