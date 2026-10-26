@@ -5,6 +5,11 @@
 - [01. 아키텍처 초안](docs/01_GraphRAG_프로젝트_아키텍처_초안.md)
 - [02. 15일 실행계획·핵심 산출물·완료 기준](docs/02_PoC_15일_실행계획.md)
 - [03. 데이터 확보 및 품질 관리](docs/03_데이터_확보_및_품질관리.md)
+- [04. G0/G1 범위·출처 승인 결정 가이드](docs/04_G0_G1_결정가이드.md)
+- [05. G0/G1 작업 기준 및 G2 착수안](docs/05_G0_G1_작업기준_및_G2_착수.md)
+- [06. G1 공식 출처 후보 1차 검토](docs/06_G1_공식출처_후보_검토.md)
+- [07. 통합 흐름 및 로컬 GraphRAG 데모](docs/07_통합흐름_로컬_GraphRAG_데모.md)
+- [08. G0 분석 범위 결정안 (승인 대기)](docs/08_G0_범위_결정안.md)
 - 종합계획서: `docs/부울경 청년 일자리-기업 미스매칭 GraphRAG 챗봇 종합계획서.md`
 
 ## 문서 번호 규칙
@@ -13,7 +18,7 @@
 
 ## 현재 구현 범위
 
-현재는 Python 표준 라이브러리 기반의 로컬 스캐폴드입니다. 출처 승인 레지스트리 검증, 합성 데이터 사용의 명시적 opt-in, JSONL 데이터 계약·검수, 검수 완료 레코드만의 검색, 근거·출처를 포함한 CLI 결과와 품질 요약을 제공합니다. 데이터 수집기, Neo4j/벡터 DB, LLM, 웹 UI는 연결되어 있지 않습니다. `data/demo_jobs.jsonl`은 명시적으로 합성된 데모 자료이므로 실제 채용시장 결과로 해석하면 안 됩니다.
+현재는 Python 표준 라이브러리 기반의 로컬 스캐폴드입니다. 출처 승인 레지스트리 검증, 합성 데이터 사용의 명시적 opt-in, JSONL 데이터 계약·검수, 검수 완료 레코드만의 검색, 근거·출처를 포함한 CLI 결과와 품질 요약을 제공합니다. `--graph` 옵션은 승인된 레코드로 메모리 그래프를 구성하고 결정론적 검색·증거 패키지를 반환하는 데모입니다. 세부 흐름과 한계는 [07 문서](docs/07_통합흐름_로컬_GraphRAG_데모.md)를 참조하세요. 데이터 수집기, Neo4j/벡터 DB, LLM, 웹 UI는 연결되어 있지 않습니다. `data/demo_jobs.jsonl`은 명시적으로 합성된 데모 자료이므로 실제 채용시장 결과로 해석하면 안 됩니다.
 
 ## 실행
 
@@ -21,6 +26,7 @@
 
 ```bash
 python -m src.app.cli --data data/demo_jobs.jsonl --allow-synthetic --query Python
+python -m src.app.cli --data data/demo_jobs.jsonl --allow-synthetic --graph --query Python --region 부산
 python -m unittest discover -s tests -v
 ```
 
