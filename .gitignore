@@ -1,2 +1,12 @@
+# Local secrets and configuration
 *.yaml
 .env
+
+# Unapproved or sensitive datasets/exports; keep only synthetic fixtures and blank templates
+/data/raw/
+/data/processed/
+/data/private/
+/data/*.jsonl
+!/data/demo_jobs.jsonl
+/data/*.csv
+!/data/source_registry_template.csv

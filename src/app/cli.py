@@ -4,8 +4,9 @@ import argparse
 import json
 
 from src.ingestion.jsonl import load_jsonl
-from src.ingestion.source_registry import validate_source_registry
 from src.ingestion.quality import quality_report
+from src.ingestion.source_registry import validate_source_registry
+from src.retrieval.graphrag import answer_with_graph
 from src.retrieval.search import search, summary
 
 
@@ -14,8 +15,9 @@ def main() -> None:
     parser.add_argument("--data", required=True, help="Approved JSONL dataset (demo fixture is synthetic)")
     parser.add_argument("--source-registry", help="Approved source registry CSV")
     parser.add_argument("--allow-synthetic", action="store_true", help="Explicitly allow synthetic demo records")
-    parser.add_argument("--query", default="", help="Search words")
+    parser.add_argument("--query", default="", help="Search words or graph entity")
     parser.add_argument("--region", default=None, help="Optional region filter")
+    parser.add_argument("--graph", action="store_true", help="Use the deterministic in-memory graph retrieval flow")
     args = parser.parse_args()
 
     approved_source_ids: set[str] = set()
@@ -32,6 +34,11 @@ def main() -> None:
     )
     print("DATA QUALITY")
     print(json.dumps(quality_report(postings, rejected), ensure_ascii=False, indent=2))
+    if args.graph:
+        print("GRAPHRAG EVIDENCE PACKAGE")
+        print(json.dumps(answer_with_graph(postings, args.query, args.region), ensure_ascii=False, indent=2))
+        return
+
     print("SUMMARY")
     print(json.dumps(summary(postings), ensure_ascii=False, indent=2))
     print("RESULTS")

@@ -6,6 +6,7 @@ from pathlib import Path
 from src.ingestion.jsonl import load_jsonl
 from src.ingestion.quality import quality_report
 from src.ingestion.source_registry import REQUIRED_COLUMNS, validate_source_registry
+from src.retrieval.graphrag import answer_with_graph, build_job_graph
 from src.retrieval.search import search, summary
 
 
@@ -103,6 +104,26 @@ class PoCTests(unittest.TestCase):
         self.assertEqual(1, len(hits))
         self.assertEqual("DEMO-CW-001", hits[0].posting.posting_id)
         self.assertTrue(hits[0].posting.evidence)
+
+    def test_graph_contains_approved_relationships_and_excludes_pending_records(self):
+        graph = build_job_graph(self.postings)
+        self.assertEqual(2, len(graph.postings))
+        self.assertNotIn("DEMO-UL-001", graph.postings)
+        self.assertTrue(any(edge.relationship == "REQUIRES_SKILL" for edge in graph.edges))
+        skill_edges = [edge for edge in graph.edges if edge.relationship == "REQUIRES_SKILL"]
+        self.assertTrue(all(edge.evidence for edge in skill_edges))
+
+    def test_graph_answer_returns_citations_and_abstains_when_empty(self):
+        answer = answer_with_graph(self.postings, "Python", region="부산")
+        self.assertEqual(1, answer["result_count"])
+        self.assertEqual("DEMO-BS-001", answer["results"][0]["posting_id"])
+        self.assertTrue(answer["results"][0]["synthetic"])
+        self.assertTrue(answer["results"][0]["evidence"])
+        self.assertIn("실제 시장 근거가 아닙니다", answer["message"])
+
+        empty = answer_with_graph(self.postings, "quantum", region="부산")
+        self.assertTrue(empty["abstained"])
+        self.assertEqual(0, empty["result_count"])
 
 
 if __name__ == "__main__":
