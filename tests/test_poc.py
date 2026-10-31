@@ -3,10 +3,13 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from src.app.evaluate import _evaluate_mode
+from src.app.web import build_search_payload
 from src.ingestion.jsonl import load_jsonl
 from src.ingestion.quality import quality_report
 from src.ingestion.source_registry import REQUIRED_COLUMNS, validate_source_registry
 from src.retrieval.graphrag import answer_with_graph, build_job_graph
+from src.retrieval.hybrid import hybrid_search
 from src.retrieval.search import search, summary
 
 
@@ -124,6 +127,47 @@ class PoCTests(unittest.TestCase):
         empty = answer_with_graph(self.postings, "quantum", region="부산")
         self.assertTrue(empty["abstained"])
         self.assertEqual(0, empty["result_count"])
+
+    def test_web_search_payload_returns_cited_approved_records(self):
+        payload = build_search_payload(self.postings, self.rejected, "Python", "부산")
+        self.assertEqual("keyword", payload["mode"])
+        self.assertEqual(1, payload["result_count"])
+        result = payload["results"][0]
+        self.assertEqual("DEMO-BS-001", result["posting_id"])
+        self.assertTrue(result["synthetic"])
+        self.assertTrue(result["evidence"])
+        self.assertEqual(["경남 창원", "부산 센텀"], payload["regions"])
+
+    def test_web_graph_payload_abstains_when_no_approved_match(self):
+        payload = build_search_payload(self.postings, self.rejected, "quantum", "부산", graph=True)
+        self.assertEqual("graph", payload["mode"])
+        self.assertEqual(0, payload["result_count"])
+        self.assertEqual([], payload["results"])
+
+    def test_evaluator_does_not_count_irrelevant_hits_as_answerable(self):
+        cases = [
+            {"id": "wrong-hit", "query": "Python", "relevant_ids": ["NOT-IN-DATASET"]},
+            {"id": "correct-abstain", "query": "quantum", "relevant_ids": []},
+        ]
+        result = _evaluate_mode(self.postings, cases, "keyword", 5)
+        self.assertEqual(0.5, result["abstention_accuracy"])
+        self.assertFalse(result["cases"][0]["answerability_correct"])
+        self.assertTrue(result["cases"][1]["answerability_correct"])
+
+    def test_hybrid_retrieval_explains_lexical_and_graph_matches(self):
+        hits = hybrid_search(self.postings, "Python", region="부산")
+        self.assertEqual(1, len(hits))
+        self.assertEqual("DEMO-BS-001", hits[0].posting.posting_id)
+        self.assertIn("lexical", hits[0].channels)
+        self.assertIn("graph", hits[0].channels)
+        self.assertIn("required_skills", hits[0].matched_fields)
+        self.assertTrue(hits[0].evidence)
+
+        payload = build_search_payload(self.postings, self.rejected, "Python", "부산", "hybrid")
+        self.assertEqual("hybrid", payload["mode"])
+        self.assertEqual(1, payload["result_count"])
+        self.assertIn("score", payload["results"][0])
+        self.assertTrue(payload["results"][0]["graph_paths"])
 
 
 if __name__ == "__main__":
