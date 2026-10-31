@@ -12,6 +12,9 @@
 - [08. G0 분석 범위 결정안 (승인 완료)](docs/08_G0_범위_결정안.md)
 - [09. G2 소량 파일럿 착수안 (실행 차단: 출처별 G1 대기)](docs/09_G2_소량_파일럿_착수안.md)
 - [10. 한국고용정보원 이용조건 확인 요청안](docs/10_G1_한국고용정보원_이용조건_확인요청안.md)
+- [11. 로컬 웹 UI MVP 및 실행 가이드](docs/11_웹_UI_MVP_실행가이드.md)
+- [12. GraphRAG 기능 구현 및 의존 정보 계획](docs/12_GraphRAG_기능구현_단계계획.md)
+- [13. 근거 기반 일자리 추천 시스템 전환·통합 업그레이드 계획](docs/13_recommendation_upgrade_plan.md)
 - 종합계획서: `docs/부울경 청년 일자리-기업 미스매칭 GraphRAG 챗봇 종합계획서.md`
 
 ## 문서 번호 규칙
@@ -20,15 +23,17 @@
 
 ## 현재 구현 범위
 
-현재는 Python 표준 라이브러리 기반의 로컬 스캐폴드입니다. 출처 승인 레지스트리 검증, 합성 데이터 사용의 명시적 opt-in, JSONL 데이터 계약·검수, 검수 완료 레코드만의 검색, 근거·출처를 포함한 CLI 결과와 품질 요약을 제공합니다. `--graph` 옵션은 승인된 레코드로 메모리 그래프를 구성하고 결정론적 검색·증거 패키지를 반환하는 데모입니다. 세부 흐름과 한계는 [07 문서](docs/07_통합흐름_로컬_GraphRAG_데모.md)를 참조하세요. 데이터 수집기, Neo4j/벡터 DB, LLM, 웹 UI는 연결되어 있지 않습니다. `data/demo_jobs.jsonl`은 명시적으로 합성된 데모 자료이므로 실제 채용시장 결과로 해석하면 안 됩니다.
+현재는 Python 표준 라이브러리 기반의 로컬 스캐폴드입니다. 출처 승인 레지스트리 검증, 합성 데이터 사용의 명시적 opt-in, JSONL 데이터 계약·검수, 검수 완료 레코드만의 검색, 근거·출처를 포함한 CLI 결과와 품질 요약을 제공합니다. 웹 UI는 키워드·그래프·설명 가능한 lexical+graph 하이브리드 검색 기준선을 제공합니다. 하이브리드는 임베딩이나 LLM이 아닌 휴리스틱 순위화이며, 점수는 평가 전 기준선입니다. 세부 흐름은 [07 문서](docs/07_통합흐름_로컬_GraphRAG_데모.md), [11 웹 UI 가이드](docs/11_웹_UI_MVP_실행가이드.md), [12 GraphRAG 구현 계획](docs/12_GraphRAG_기능구현_단계계획.md)을 참조하세요. 최종 목표를 근거 기반 일자리 추천 시스템으로 확장하는 제안은 [13 통합 업그레이드 계획](docs/13_recommendation_upgrade_plan.md)을 참조하세요. 이 목표 전환은 제안 단계이며, 추천 기능이나 출처 승인이 완료됐다는 뜻은 아닙니다. 실제 출처 API·Neo4j·벡터 DB·LLM·운영 배포용 인증/권한 관리는 연결되어 있지 않습니다. `data/demo_jobs.jsonl`은 합성 데모 자료이며 실제 채용시장 결과로 해석하면 안 됩니다.
 
 ## 실행
 
 저장소 루트에서:
 
-```bash
+```bash README.md
 python -m src.app.cli --data data/demo_jobs.jsonl --allow-synthetic --query Python
 python -m src.app.cli --data data/demo_jobs.jsonl --allow-synthetic --graph --query Python --region 부산
+python -m src.app.web --data data/demo_jobs.jsonl --allow-synthetic --host 127.0.0.1 --port 8000
+python -m src.app.evaluate --data data/demo_jobs.jsonl --allow-synthetic --cases data/retrieval_eval_synthetic.json --k 5
 python -m unittest discover -s tests -v
 ```
 
