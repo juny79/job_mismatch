@@ -1,15 +1,18 @@
 import csv
+from dataclasses import replace
+from datetime import date, timedelta
 import tempfile
 import unittest
 from pathlib import Path
 
-from src.app.evaluate import _evaluate_mode
-from src.app.web import build_search_payload
+from src.app.evaluate import _evaluate_mode, _evaluate_recommendations
+from src.app.web import build_recommendation_payload, build_search_payload
 from src.ingestion.jsonl import load_jsonl
 from src.ingestion.quality import quality_report
 from src.ingestion.source_registry import REQUIRED_COLUMNS, validate_source_registry
 from src.retrieval.graphrag import answer_with_graph, build_job_graph
 from src.retrieval.hybrid import hybrid_search
+from src.retrieval.recommend import recommend
 from src.retrieval.search import search, summary
 
 
@@ -143,6 +146,67 @@ class PoCTests(unittest.TestCase):
         self.assertEqual("graph", payload["mode"])
         self.assertEqual(0, payload["result_count"])
         self.assertEqual([], payload["results"])
+
+    def test_recommendation_applies_required_filters_and_evidence_supported_preferences(self):
+        hits = recommend(
+            self.postings,
+            region="부산",
+            role_category="AI/SW",
+            required_skills=["Python"],
+            preferred_skills=["PyTorch"],
+            preferred_benefits=["유연근무"],
+        )
+        self.assertEqual(1, len(hits))
+        hit = hits[0]
+        self.assertEqual("DEMO-BS-001", hit.posting.posting_id)
+        self.assertEqual(100.0, hit.score)
+        self.assertEqual(("python",), hit.matched_required_skills)
+        self.assertTrue(all(item["status"] == "match" for item in hit.conditions))
+        self.assertEqual(
+            {"recruitment_status", "region", "role_category", "required_skills", "benefits"},
+            {item.field for item in hit.evidence},
+        )
+
+    def test_recommendation_excludes_closed_and_expired_records(self):
+        busan = next(p for p in self.postings if p.region.startswith("부산"))
+        closed = replace(busan, recruitment_status="closed")
+        expired = replace(busan, expires_at=(date.today() - timedelta(days=1)).isoformat())
+        self.assertEqual([], recommend([closed], region="부산"))
+        self.assertEqual([], recommend([expired], region="부산"))
+
+    def test_recommendation_abstains_for_missing_required_salary_or_no_conditions(self):
+        self.assertEqual([], recommend(self.postings))
+        hits = recommend(self.postings, region="부산", salary_minimum=4000, salary_required=True)
+        self.assertEqual([], hits)
+        optional = recommend(self.postings, region="부산", salary_minimum=4000)
+        self.assertEqual(1, len(optional))
+        self.assertEqual("unknown", optional[0].conditions[-1]["status"])
+
+    def test_web_recommendation_contract_is_transient_explainable_and_fails_closed(self):
+        payload = build_recommendation_payload(self.postings, {
+            "region": "부산", "role_category": "AI/SW", "required_skills": "Python",
+            "preferred_benefits": "유연근무",
+        })
+        self.assertEqual("deterministic_recommendation_preview", payload["mode"])
+        self.assertFalse(payload["abstained"])
+        self.assertEqual("DEMO-BS-001", payload["results"][0]["posting_id"])
+        self.assertTrue(payload["results"][0]["evidence"])
+        self.assertIn("보장하지 않습니다", payload["message"])
+
+        empty = build_recommendation_payload(self.postings, {})
+        self.assertTrue(empty["abstained"])
+        with self.assertRaises(ValueError):
+            build_recommendation_payload(self.postings, {"age": 20})
+
+    def test_recommendation_evaluator_covers_relevance_and_abstention_cases(self):
+        cases_path = Path(__file__).parents[1] / "data" / "recommendation_eval_synthetic.json"
+        import json
+        cases = json.loads(cases_path.read_text(encoding="utf-8"))["cases"]
+        result = _evaluate_recommendations(self.postings, cases, 5)
+        self.assertEqual(4, result["case_count"])
+        self.assertEqual(1.0, result["abstention_accuracy"])
+        self.assertEqual(0.0, result["required_condition_violation_rate"])
+        self.assertEqual(["DEMO-BS-001"], result["cases"][0]["ranked_ids"])
 
     def test_evaluator_does_not_count_irrelevant_hits_as_answerable(self):
         cases = [

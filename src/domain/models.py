@@ -56,6 +56,11 @@ class JobPosting:
     source_url: str = ""
     posted_at: str = ""
     expires_at: str = ""
+    updated_at: str = ""
+    recruitment_status: str = "unknown"
+    employment_type: str = ""
+    work_mode: str = ""
+    experience: str = ""
     company_id: str = ""
     company_name: str = ""
     region_raw: str = ""
@@ -85,6 +90,11 @@ class JobPosting:
             source_url=str(value.get("source_url", "")),
             posted_at=str(value.get("posted_at", "")),
             expires_at=str(value.get("expires_at", "")),
+            updated_at=str(value.get("updated_at", "")),
+            recruitment_status=str(value.get("recruitment_status", "unknown")),
+            employment_type=str(value.get("employment_type", "")),
+            work_mode=str(value.get("work_mode", "")),
+            experience=str(value.get("experience", "")),
             company_id=str(value.get("company_id", "")),
             company_name=str(value.get("company_name", "")),
             region_raw=str(value.get("region_raw", "")),

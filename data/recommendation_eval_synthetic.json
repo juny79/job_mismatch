@@ -1,0 +1,39 @@
+{
+  "dataset": "demo_jobs.jsonl",
+  "purpose": "synthetic regression fixture only; not an estimate of real recommendation quality",
+  "cases": [
+    {
+      "id": "busan_ai_python",
+      "preferences": {
+        "region": "부산",
+        "role_category": "AI/SW",
+        "required_skills": ["Python"],
+        "preferred_skills": ["PyTorch"],
+        "preferred_benefits": ["유연근무"]
+      },
+      "relevant_ids": ["DEMO-BS-001"]
+    },
+    {
+      "id": "required_salary_unknown_abstain",
+      "preferences": {
+        "region": "부산",
+        "salary_minimum": 4000,
+        "salary_required": true
+      },
+      "relevant_ids": []
+    },
+    {
+      "id": "no_conditions_abstain",
+      "preferences": {},
+      "relevant_ids": []
+    },
+    {
+      "id": "required_skill_missing_abstain",
+      "preferences": {
+        "region": "부산",
+        "required_skills": ["Quantum Computing"]
+      },
+      "relevant_ids": []
+    }
+  ]
+}

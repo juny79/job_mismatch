@@ -23,7 +23,7 @@
 
 ## 현재 구현 범위
 
-현재는 Python 표준 라이브러리 기반의 로컬 스캐폴드입니다. 출처 승인 레지스트리 검증, 합성 데이터 사용의 명시적 opt-in, JSONL 데이터 계약·검수, 검수 완료 레코드만의 검색, 근거·출처를 포함한 CLI 결과와 품질 요약을 제공합니다. 웹 UI는 키워드·그래프·설명 가능한 lexical+graph 하이브리드 검색 기준선을 제공합니다. 하이브리드는 임베딩이나 LLM이 아닌 휴리스틱 순위화이며, 점수는 평가 전 기준선입니다. 세부 흐름은 [07 문서](docs/07_통합흐름_로컬_GraphRAG_데모.md), [11 웹 UI 가이드](docs/11_웹_UI_MVP_실행가이드.md), [12 GraphRAG 구현 계획](docs/12_GraphRAG_기능구현_단계계획.md)을 참조하세요. 최종 목표를 근거 기반 일자리 추천 시스템으로 확장하는 제안은 [13 통합 업그레이드 계획](docs/13_recommendation_upgrade_plan.md)을 참조하세요. 이 목표 전환은 제안 단계이며, 추천 기능이나 출처 승인이 완료됐다는 뜻은 아닙니다. 실제 출처 API·Neo4j·벡터 DB·LLM·운영 배포용 인증/권한 관리는 연결되어 있지 않습니다. `data/demo_jobs.jsonl`은 합성 데모 자료이며 실제 채용시장 결과로 해석하면 안 됩니다.
+현재는 Python 표준 라이브러리 기반의 로컬 스캐폴드입니다. 출처 승인 레지스트리 검증, 합성 데이터 사용의 명시적 opt-in, JSONL 데이터 계약·검수, 검수 완료 레코드만의 검색, 근거·출처를 포함한 CLI 결과와 품질 요약을 제공합니다. 웹 UI에는 키워드·그래프·lexical+graph 하이브리드 검색과 비저장 조건 기반 추천 vertical slice가 있습니다. 추천기는 결정론적 필수 필터와 선호 일치도, 필드별 evidence, 활성/만료 상태 검사를 제공하며 합성 회귀 데이터만으로 동작합니다. 실데이터 추천은 출처별 G1, 최신성·필드 검수, 오프라인 평가 및 개인정보/보안 게이트 전까지 금지됩니다. 하이브리드/추천 점수는 검증된 예측이 아닙니다. 세부 흐름은 [07 문서](docs/07_통합흐름_로컬_GraphRAG_데모.md), [11 웹 UI 가이드](docs/11_웹_UI_MVP_실행가이드.md), [12 GraphRAG 구현 계획](docs/12_GraphRAG_기능구현_단계계획.md), [13 업그레이드 계획](docs/13_recommendation_upgrade_plan.md)을 참조하세요. 실제 출처 API·Neo4j·벡터 DB·LLM·운영 배포용 인증/권한 관리는 연결되어 있지 않습니다. `data/demo_jobs.jsonl`은 합성 데모 자료이며 실제 채용시장 결과나 추천 품질로 해석하면 안 됩니다.
 
 ## 실행
 
@@ -33,8 +33,8 @@
 python -m src.app.cli --data data/demo_jobs.jsonl --allow-synthetic --query Python
 python -m src.app.cli --data data/demo_jobs.jsonl --allow-synthetic --graph --query Python --region 부산
 python -m src.app.web --data data/demo_jobs.jsonl --allow-synthetic --host 127.0.0.1 --port 8000
-python -m src.app.evaluate --data data/demo_jobs.jsonl --allow-synthetic --cases data/retrieval_eval_synthetic.json --k 5
+python -m src.app.evaluate --data data/demo_jobs.jsonl --allow-synthetic --cases data/retrieval_eval_synthetic.json --recommendation-cases data/recommendation_eval_synthetic.json --k 5
 python -m unittest discover -s tests -v
 ```
 
-실제 데이터를 입력할 때는 승인된 출처만 `data/source_registry_template.csv` 형식으로 등록하고 `--source-registry`로 전달해야 합니다. 허가되지 않은 출처는 적재되지 않습니다. 실제 데이터를 입력하기 전에 출처의 이용 조건, 관측 범위, 스키마와 검수 기준을 승인해야 합니다. 레코드 필드는 `src/domain/models.py`와 `src/domain/validation.py`를 기준으로 하며, 각 JSONL 행은 하나의 JSON 객체입니다.
+웹 UI의 추천 폼은 `POST /api/recommend`를 사용하며 입력을 URL·로그·프로필에 저장하지 않습니다. 현재 추천 결과는 합성 데이터 vertical slice 기능 점검용입니다. 실제 데이터를 입력할 때는 승인된 출처만 `data/source_registry_template.csv` 형식으로 등록하고 `--source-registry`로 전달해야 합니다. 허가되지 않은 출처는 적재되지 않습니다. 실제 데이터를 입력하기 전에 추천 표시까지 포함한 출처 이용 조건, 관측 범위, 스키마, 최신성 및 검수 기준을 승인해야 합니다. 레코드 필드는 `src/domain/models.py`와 `src/domain/validation.py`를 기준으로 하며, 각 JSONL 행은 하나의 JSON 객체입니다.

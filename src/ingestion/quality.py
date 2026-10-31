@@ -23,11 +23,17 @@ def quality_report(
         "raw_text": lambda p: p.raw_text,
         "collected_at": lambda p: p.collected_at,
         "posted_at": lambda p: p.posted_at,
+        "updated_at": lambda p: p.updated_at,
+        "expires_at": lambda p: p.expires_at,
+        "recruitment_status": lambda p: p.recruitment_status if p.recruitment_status != "unknown" else "",
         "region": lambda p: p.region,
         "role_category": lambda p: p.role_category,
         "company_name": lambda p: p.company_name,
         "required_skills": lambda p: p.required_skills,
         "benefits": lambda p: p.benefits,
+        "employment_type": lambda p: p.employment_type,
+        "work_mode": lambda p: p.work_mode,
+        "experience": lambda p: p.experience,
     }
     field_completeness = {
         name: {
@@ -53,6 +59,11 @@ def quality_report(
             applicable_fields.add("required_skills")
         if posting.benefits:
             applicable_fields.add("benefits")
+        if posting.recruitment_status != "unknown":
+            applicable_fields.add("recruitment_status")
+        for field_name in ("employment_type", "work_mode", "experience"):
+            if getattr(posting, field_name):
+                applicable_fields.add(field_name)
         evidence_applicability.update(applicable_fields)
         evidence_coverage.update(applicable_fields & present_evidence)
 

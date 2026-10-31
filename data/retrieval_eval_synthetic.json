@@ -1,0 +1,11 @@
+{
+  "dataset": "demo_jobs.jsonl",
+  "purpose": "synthetic regression fixture only; not real relevance evaluation",
+  "cases": [
+    {"id": "python_skill", "query": "Python", "region": "", "relevant_ids": ["DEMO-BS-001", "DEMO-CW-001"]},
+    {"id": "ros2_skill", "query": "ROS2", "region": "", "relevant_ids": ["DEMO-CW-001"]},
+    {"id": "busan_filter", "query": "Python", "region": "부산", "relevant_ids": ["DEMO-BS-001"]},
+    {"id": "benefit_dormitory", "query": "기숙사", "region": "", "relevant_ids": ["DEMO-CW-001"]},
+    {"id": "no_match_abstain", "query": "quantum", "region": "", "relevant_ids": []}
+  ]
+}

@@ -21,7 +21,7 @@ def validate_posting(posting: JobPosting) -> list[str]:
     for field_name in ("posting_id", "source_id", "source_name", "collected_at", "title", "raw_text"):
         if not getattr(posting, field_name).strip():
             errors.append(f"{field_name} is required")
-    for field_name in ("collected_at", "posted_at", "expires_at", "reviewed_at"):
+    for field_name in ("collected_at", "posted_at", "updated_at", "expires_at", "reviewed_at"):
         value = getattr(posting, field_name)
         if value and not _valid_date(value):
             errors.append(f"{field_name} must be an ISO-8601 date or datetime")
@@ -31,6 +31,8 @@ def validate_posting(posting: JobPosting) -> list[str]:
         if expires < posted:
             errors.append("expires_at must not precede posted_at")
 
+    if posting.recruitment_status not in {"active", "closed", "unknown"}:
+        errors.append(f"unsupported recruitment status: {posting.recruitment_status}")
     if posting.salary.status not in SALARY_STATUSES:
         errors.append(f"unsupported salary status: {posting.salary.status}")
     bounds = (posting.salary.minimum, posting.salary.maximum)
@@ -65,6 +67,11 @@ def validate_posting(posting: JobPosting) -> list[str]:
             extracted_fields.add("required_skills")
         if posting.benefits:
             extracted_fields.add("benefits")
+        if posting.recruitment_status != "unknown":
+            extracted_fields.add("recruitment_status")
+        for field_name in ("employment_type", "work_mode", "experience"):
+            if getattr(posting, field_name):
+                extracted_fields.add(field_name)
         missing_evidence = sorted(extracted_fields - evidence_fields)
         if missing_evidence:
             errors.append(f"approved source posting lacks field evidence: {', '.join(missing_evidence)}")
