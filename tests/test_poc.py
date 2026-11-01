@@ -167,6 +167,40 @@ class PoCTests(unittest.TestCase):
             {item.field for item in hit.evidence},
         )
 
+    def test_candidate_profile_skill_coverage_compares_only_evidence_supported_job_skills(self):
+        hits = recommend(self.postings, candidate_skills=["Python"])
+        self.assertEqual(["DEMO-BS-001", "DEMO-CW-001"], [hit.posting.posting_id for hit in hits])
+        self.assertEqual(100.0, hits[0].profile_skill_coverage)
+        self.assertEqual(("Python",), hits[0].matched_profile_skills)
+        self.assertEqual(("PyTorch",), hits[0].unlisted_job_skills)
+        self.assertIn("required_skills", {item.field for item in hits[0].evidence})
+
+    def test_profile_skill_comparison_handles_full_partial_zero_and_missing_evidence(self):
+        full = recommend(self.postings, candidate_skills=["Python", "PyTorch"])
+        self.assertEqual(100.0, full[0].profile_skill_coverage)
+        self.assertEqual(("Python", "PyTorch"), full[0].matched_profile_skills)
+        self.assertEqual((), full[0].unlisted_job_skills)
+
+        partial = recommend(self.postings, candidate_skills=["Python"])
+        self.assertEqual(50.0, partial[0].profile_skill_coverage)
+        self.assertEqual(("PyTorch",), partial[0].unlisted_job_skills)
+
+        none = recommend(self.postings, candidate_skills=["Java"])
+        self.assertEqual(0.0, none[0].profile_skill_coverage)
+        self.assertEqual(("Python", "PyTorch"), none[0].unlisted_job_skills)
+        # Substring-only matches can create false positives (for example, "Py").
+        self.assertEqual(0.0, recommend(self.postings, candidate_skills=["Py"])[0].profile_skill_coverage)
+
+        busan = next(p for p in self.postings if p.region.startswith("부산"))
+        without_skill_evidence = replace(
+            busan,
+            evidence=tuple(item for item in busan.evidence if item.field != "required_skills"),
+        )
+        unsupported = recommend([without_skill_evidence], candidate_skills=["Python"])
+        self.assertIsNone(unsupported[0].profile_skill_coverage)
+        self.assertEqual((), unsupported[0].unlisted_job_skills)
+        self.assertNotIn("required_skills", {item.field for item in unsupported[0].evidence})
+
     def test_recommendation_excludes_closed_and_expired_records(self):
         busan = next(p for p in self.postings if p.region.startswith("부산"))
         closed = replace(busan, recruitment_status="closed")
@@ -192,6 +226,12 @@ class PoCTests(unittest.TestCase):
         self.assertEqual("DEMO-BS-001", payload["results"][0]["posting_id"])
         self.assertTrue(payload["results"][0]["evidence"])
         self.assertIn("보장하지 않습니다", payload["message"])
+
+        profile = build_recommendation_payload(self.postings, {"candidate_skills": "Python"})
+        self.assertEqual("DEMO-BS-001", profile["results"][0]["posting_id"])
+        self.assertEqual(100.0, profile["results"][0]["profile_skill_coverage"])
+        self.assertEqual(["PyTorch"], profile["results"][0]["unlisted_job_skills"])
+        self.assertIn("역량 부족으로", profile["message"])
 
         empty = build_recommendation_payload(self.postings, {})
         self.assertTrue(empty["abstained"])

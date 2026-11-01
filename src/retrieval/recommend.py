@@ -19,6 +19,9 @@ class RecommendationHit:
     unmatched_preferred_benefits: tuple[str, ...]
     conditions: tuple[dict[str, object], ...]
     evidence: tuple[Evidence, ...]
+    matched_profile_skills: tuple[str, ...]
+    unlisted_job_skills: tuple[str, ...]
+    profile_skill_coverage: float | None
 
 
 def _terms(values: Iterable[str] | str) -> tuple[str, ...]:
@@ -45,6 +48,7 @@ def recommend(
     required_skills: Iterable[str] = (),
     preferred_skills: Iterable[str] = (),
     preferred_benefits: Iterable[str] = (),
+    candidate_skills: Iterable[str] = (),
     salary_minimum: int | None = None,
     salary_unit: str = "만원/연",
     salary_required: bool = False,
@@ -64,6 +68,7 @@ def recommend(
     required = _terms(required_skills)
     preferred_skill_terms = _terms(preferred_skills)
     preferred_benefit_terms = _terms(preferred_benefits)
+    candidate_skill_terms = _terms(candidate_skills)
     region, role_category = region.strip(), role_category.strip()
     employment_type, work_mode, experience = (
         employment_type.strip(), work_mode.strip(), experience.strip()
@@ -77,7 +82,7 @@ def recommend(
 
     has_conditions = bool(
         (region and region_mode != "ignore") or (role_category and role_mode != "ignore")
-        or required or preferred_skill_terms or preferred_benefit_terms
+        or required or preferred_skill_terms or preferred_benefit_terms or candidate_skill_terms
         or salary_minimum is not None or employment_type or work_mode or experience
     )
     if not has_conditions:
@@ -141,6 +146,24 @@ def recommend(
             supported_benefits = tuple(benefit for benefit in posting.benefits
                                        if _has_term_evidence(posting, "benefits", benefit.casefold()))
             assess("선호 복지", "benefits", term, ", ".join(supported_benefits), hard=False)
+
+        job_skill_matches: list[tuple[str, str]] = []
+        if candidate_skill_terms:
+            if supported_skills:
+                used_fields.add("required_skills")
+            for job_skill in supported_skills:
+                candidate_match = next((candidate for candidate in candidate_skill_terms
+                                        if candidate == job_skill.casefold()), None)
+                if candidate_match:
+                    job_skill_matches.append((job_skill, candidate_match))
+            coverage = round(100 * len(job_skill_matches) / len(supported_skills), 1) if supported_skills else None
+            matched_candidate_skills = tuple(dict.fromkeys(job_skill for job_skill, _ in job_skill_matches))
+            matched_job_skills = {job_skill for job_skill, _ in job_skill_matches}
+            unlisted_job_skills = tuple(skill for skill in supported_skills if skill not in matched_job_skills)
+        else:
+            coverage = None
+            matched_candidate_skills = ()
+            unlisted_job_skills = ()
         if salary_minimum is not None:
             evidence = _field_evidence(posting, "salary")
             known = (posting.salary.status == "reported" and posting.salary.minimum is not None
@@ -190,7 +213,14 @@ def recommend(
             matched_preferred_benefits=matched_preferred_benefits,
             unmatched_preferred_benefits=tuple(t for t in preferred_benefit_terms if t not in matched_pref),
             conditions=tuple(checks), evidence=evidence,
+            matched_profile_skills=matched_candidate_skills,
+            unlisted_job_skills=unlisted_job_skills,
+            profile_skill_coverage=coverage,
         ))
 
-    hits.sort(key=lambda hit: (-(hit.score if hit.score is not None else -1.0), hit.posting.posting_id))
+    hits.sort(key=lambda hit: (
+        -(hit.profile_skill_coverage if hit.profile_skill_coverage is not None else -1.0),
+        -(hit.score if hit.score is not None else -1.0),
+        hit.posting.posting_id,
+    ))
     return hits[:max(0, min(limit, 50))]

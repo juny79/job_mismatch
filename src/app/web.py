@@ -141,7 +141,7 @@ def build_recommendation_payload(postings: list[Any], preferences: dict[str, Any
     """Evaluate a transient request; no profile or preference is persisted."""
     allowed = {
         "region", "region_mode", "role_category", "role_mode", "required_skills",
-        "preferred_skills", "preferred_benefits", "salary_minimum", "salary_unit", "salary_required",
+        "preferred_skills", "preferred_benefits", "candidate_skills", "salary_minimum", "salary_unit", "salary_required",
         "employment_type", "employment_type_required", "work_mode", "work_mode_required",
         "experience", "experience_required",
     }
@@ -188,6 +188,7 @@ def build_recommendation_payload(postings: list[Any], preferences: dict[str, Any
         required_skills=_comma_values(preferences.get("required_skills"), "required_skills"),
         preferred_skills=_comma_values(preferences.get("preferred_skills"), "preferred_skills"),
         preferred_benefits=_comma_values(preferences.get("preferred_benefits"), "preferred_benefits"),
+        candidate_skills=_comma_values(preferences.get("candidate_skills"), "candidate_skills"),
         salary_minimum=salary_minimum,
         salary_unit=salary_unit,
         salary_required=preferences.get("salary_required", False),
@@ -205,6 +206,7 @@ def build_recommendation_payload(postings: list[Any], preferences: dict[str, Any
         or _comma_values(preferences.get("required_skills"), "required_skills")
         or _comma_values(preferences.get("preferred_skills"), "preferred_skills")
         or _comma_values(preferences.get("preferred_benefits"), "preferred_benefits")
+        or _comma_values(preferences.get("candidate_skills"), "candidate_skills")
         or salary_minimum is not None
         or preferences.get("employment_type") or preferences.get("work_mode")
         or preferences.get("experience")
@@ -221,6 +223,9 @@ def build_recommendation_payload(postings: list[Any], preferences: dict[str, Any
             "unmatched_preferred_skills": list(hit.unmatched_preferred_skills),
             "matched_preferred_benefits": list(hit.matched_preferred_benefits),
             "unmatched_preferred_benefits": list(hit.unmatched_preferred_benefits),
+            "matched_profile_skills": list(hit.matched_profile_skills),
+            "unlisted_job_skills": list(hit.unlisted_job_skills),
+            "profile_skill_coverage": hit.profile_skill_coverage,
             "evidence": [
                 {"field": item.field, "quote": item.quote, "locator": item.locator}
                 for item in hit.evidence
@@ -233,7 +238,7 @@ def build_recommendation_payload(postings: list[Any], preferences: dict[str, Any
         if not has_conditions else
         "필수 조건·검수·모집 상태를 확인할 수 있는 공고가 없습니다. 조건을 완화하거나 원문을 확인해 주세요."
         if abstained else
-        "입력 조건 기준 후보입니다. 취업·채용 결과를 예측하거나 보장하지 않으며, 미확인 항목은 일치로 간주하지 않습니다."
+        "프로필 기준으로 확인할 후보입니다. 이력서에 적히지 않은 요건은 실제 역량 부족으로 단정하지 않습니다. 취업·채용 결과를 예측하거나 보장하지 않습니다."
     )
     return {
         "mode": "deterministic_recommendation_preview",
