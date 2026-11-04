@@ -6,8 +6,28 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 from sqlalchemy import create_engine
 from sqlalchemy.orm import declarative_base, sessionmaker
+
+
+def _sanitize_postgres_url(raw_url: str) -> str:
+    """Normalize postgres:// prefix and strip query parameters unsupported by older libpq/drivers."""
+    url = raw_url.strip()
+    if url.startswith("postgres://"):
+        url = url.replace("postgres://", "postgresql://", 1)
+    if not url.startswith("postgresql"):
+        return url
+
+    parts = urlsplit(url)
+    # Keep only standard libpq parameters supported universally; drop channel_binding / pgbouncer / schema
+    unsupported_keys = {"channel_binding", "pgbouncer", "schema", "sslaccept"}
+    clean_query = [
+        (k, v) for k, v in parse_qsl(parts.query, keep_blank_values=True)
+        if k not in unsupported_keys
+    ]
+    return urlunsplit((parts.scheme, parts.netloc, parts.path, urlencode(clean_query), parts.fragment))
+
 
 DATABASE_URL = (
     os.environ.get("DATABASE_URL", "").strip()
@@ -16,19 +36,15 @@ DATABASE_URL = (
 )
 
 if not DATABASE_URL:
-    # Local fallback to sqlite in /tmp on serverless or local data dir
     if os.environ.get("VERCEL"):
         DATABASE_URL = "sqlite:////tmp/jobs.db"
     else:
         local_db_path = Path(__file__).resolve().parent.parent.parent / "data" / "jobs.db"
         local_db_path.parent.mkdir(parents=True, exist_ok=True)
         DATABASE_URL = f"sqlite:///{local_db_path}"
+else:
+    DATABASE_URL = _sanitize_postgres_url(DATABASE_URL)
 
-# Handle Postgres protocol prefix for SQLAlchemy
-if DATABASE_URL.startswith("postgres://"):
-    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
-
-# Try psycopg2 first; fallback to pg8000 pure python driver if psycopg2 binary fails in lambda
 try:
     engine = create_engine(
         DATABASE_URL,
@@ -38,7 +54,9 @@ try:
     )
 except Exception:
     if DATABASE_URL.startswith("postgresql://"):
-        pg8000_url = DATABASE_URL.replace("postgresql://", "postgresql+pg8000://", 1)
+        # Strip all query params for pg8000 pure-python fallback
+        parts = urlsplit(DATABASE_URL)
+        pg8000_url = urlunsplit(("postgresql+pg8000", parts.netloc, parts.path, "", ""))
         engine = create_engine(pg8000_url, echo=False, pool_pre_ping=True)
     else:
         raise

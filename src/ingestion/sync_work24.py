@@ -37,6 +37,7 @@ def sync_from_work24(
     else:
         region_targets = list(BU_UL_GYEONG_REGIONS.items())
 
+    total_in_db = 0
     try:
         for label, code in region_targets:
             filters = {"region": code} if code else None
@@ -49,10 +50,13 @@ def sync_from_work24(
                         session.merge(record)
                         total_saved += 1
                     session.commit()
-                except Work24ApiError as err:
+                except Exception as err:
                     errors.append(f"{label}(p{page}): {err}")
     finally:
-        total_in_db = session.query(JobPostingRecord).count()
+        try:
+            total_in_db = session.query(JobPostingRecord).count()
+        except Exception as db_err:
+            errors.append(f"DB count error: {db_err}")
         session.close()
 
     return {"saved": total_saved, "total_in_db": total_in_db, "errors": errors}

@@ -87,6 +87,7 @@ def _enrich_with_graph_stats(payload: dict[str, Any], postings: list[Any]) -> di
             })
 
     payload["graph_stats"] = {
+        "total_postings_in_db": len(postings),
         "node_count": g_sum["node_count"],
         "edge_count": g_sum["relationship_count"],
         "node_kinds": kind_counts,

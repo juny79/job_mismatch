@@ -750,7 +750,8 @@ async function updateJobFeed() {
 function updateGraphBadge(d) {
   const g = d.graph_stats;
   if (g && $('graph-summary-text')) {
-    $('graph-summary-text').textContent = `GraphRAG 가동 중 · 노드 ${Number(g.node_count||0).toLocaleString()}개 · 관계 ${Number(g.edge_count||0).toLocaleString()}개`;
+    const totalJobs = Number(g.total_postings_in_db ?? d.summary?.approved_postings ?? 0).toLocaleString();
+    $('graph-summary-text').textContent = `적재 공고 ${totalJobs}건 · GraphRAG 노드 ${Number(g.node_count||0).toLocaleString()}개 · 관계 ${Number(g.edge_count||0).toLocaleString()}개`;
   }
 }
 
@@ -770,7 +771,8 @@ function renderJobCards() {
     rows.sort((a,b) => (b.source?.posted_at || '').localeCompare(a.source?.posted_at || ''));
   }
 
-  $('result-count').textContent = `총 ${rows.length}건의 고용24 부울경 실공고`;
+  const totalLoaded = currentResultData.graph_stats?.total_postings_in_db ?? currentResultData.summary?.approved_postings ?? all.length;
+  $('result-count').textContent = `불러온 전체 공고 ${Number(totalLoaded).toLocaleString()}건 중 조건 일치 ${rows.length}건 표시`;
 
   if (!rows.length) {
     $('results').innerHTML = `<div class="empty">현재 조건에 정확히 일치하는 공고가 없습니다.<br>챗봇에서 <b>[처음부터]</b>를 누르거나 조건을 조금 완화해 보세요.</div>`;
@@ -886,12 +888,20 @@ $('sync-btn').addEventListener('click', async () => {
   const btn = $('sync-btn');
   btn.disabled = true;
   const orig = btn.textContent;
-  btn.textContent = '⏳ 수집 중…';
+  btn.textContent = '⏳ 고용24 수집 중…';
   try {
     const r = await fetch('/api/sync', {method: 'POST'});
     const d = await r.json();
-    addBubble(`고용24에서 부울경 공고를 추가 수집했습니다! (현재 총 ${d.total_in_db || d.synced_count}건)`, 'bot');
+    if (!r.ok || d.error) {
+      addBubble(`⚠️ 동기화 안내: ${d.error || '고용24 호출 실패'}`, 'bot');
+    } else if (d.errors && d.errors.length && !d.synced_count) {
+      addBubble(`⚠️ 고용24 API 응답 확인 필요: ${d.errors.join(' / ')}`, 'bot');
+    } else {
+      addBubble(`✅ 고용24에서 부울경 공고 ${d.synced_count || 0}건을 새로 가져왔습니다! (현재 DB 총 ${d.total_in_db || d.synced_count}건 적재 완료)`, 'bot');
+    }
     await updateJobFeed();
+  } catch (err) {
+    addBubble(`⚠️ 동기화 요청 오류: ${err.message}`, 'bot');
   } finally {
     btn.disabled = false;
     btn.textContent = orig;
