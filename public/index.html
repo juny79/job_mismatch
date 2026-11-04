@@ -4,1072 +4,841 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="theme-color" content="#0f2922">
-<title>부울경 채용 GraphRAG 탐색 & 내 이력 미스매칭 분석</title>
+<title>부울경 채용 AI 매칭 챗봇 · GraphRAG</title>
 <style>
 :root {
   color-scheme: light;
-  --bg: #f3f6f4;
+  --bg: #f4f7f6;
   --surface: #ffffff;
-  --surface-alt: #f8faf8;
-  --ink: #132a23;
-  --ink-soft: #385147;
-  --muted: #647870;
-  --line: #d5e0da;
-  --brand: #14533e;
-  --brand-dark: #0c3527;
-  --brand-light: #e6f2ed;
+  --ink: #11221d;
+  --muted: #647770;
+  --line: #dde5e1;
+  --brand: #135c43;
+  --brand-soft: #e8f3ee;
   --accent: #d4ec68;
-  --accent-ink: #163628;
-  --match: #157347;
-  --match-bg: #e8f6ee;
+  --match: #147a4c;
+  --match-bg: #e6f6ee;
   --warn: #b45309;
   --warn-bg: #fef3c7;
-  --miss: #b91c1c;
-  --miss-bg: #fee2e2;
-  --radius: 10px;
-  --shadow: 0 4px 16px rgba(15, 41, 34, 0.06);
+  --radius: 14px;
 }
 * { box-sizing: border-box; }
 body {
   margin: 0;
   background: var(--bg);
   color: var(--ink);
-  font-family: "Pretendard", Inter, -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
-  line-height: 1.6;
-}
-.sr-only {
-  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
-  overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0;
+  font-family: "Pretendard", -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+  line-height: 1.5;
 }
 
-/* Header Hero */
-.hero {
-  background: radial-gradient(circle at 85% 15%, #205c48 0%, transparent 45%), linear-gradient(125deg, #0d2921 0%, #154233 100%);
-  color: #f7faf8;
-  padding: 36px max(20px, calc((100% - 1260px) / 2)) 28px;
-  border-bottom: 1px solid #265947;
+/* Compact Top Bar */
+.topbar {
+  background: #0f2922;
+  color: #fff;
+  padding: 14px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
 }
-.hero-top {
-  display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; flex-wrap: wrap;
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
-.hero-badge {
-  display: inline-flex; align-items: center; gap: 7px;
-  padding: 5px 12px; border-radius: 999px;
-  background: rgba(212, 236, 104, 0.14); border: 1px solid rgba(212, 236, 104, 0.4);
-  color: var(--accent); font-size: 12px; font-weight: 700;
+.brand h1 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
 }
-.hero-badge .dot {
-  width: 8px; height: 8px; border-radius: 50%; background: var(--accent);
+.brand-sub {
+  font-size: 12.5px;
+  color: #a3c2b7;
+}
+.top-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.graph-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: rgba(212, 236, 104, 0.14);
+  border: 1px solid rgba(212, 236, 104, 0.35);
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 700;
+}
+.graph-pill .dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent);
   box-shadow: 0 0 8px var(--accent);
 }
-.hero h1 {
-  margin: 12px 0 8px; font-size: clamp(24px, 3.2vw, 36px);
-  line-height: 1.25; letter-spacing: -0.03em; font-weight: 800;
-}
-.hero p {
-  margin: 0; max-width: 680px; color: #c7d9d0; font-size: 14.5px;
-}
-.hero-actions {
-  display: flex; flex-direction: column; align-items: flex-end; gap: 8px;
-}
 .sync-btn {
-  height: 42px; padding: 0 18px; border-radius: 8px; border: 1px solid var(--accent);
-  background: var(--accent); color: var(--accent-ink);
-  font-weight: 800; font-size: 13.5px; cursor: pointer;
-  display: inline-flex; align-items: center; gap: 8px;
-  transition: transform 0.15s, background 0.15s;
+  height: 34px;
+  padding: 0 13px;
+  border-radius: 999px;
+  border: 1px solid #356958;
+  background: #184235;
+  color: #e6f2ed;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
 }
-.sync-btn:hover:not(:disabled) { transform: translateY(-1px); background: #dff47e; }
-.sync-btn:disabled { opacity: 0.65; cursor: wait; }
-.sync-sub { font-size: 12px; color: #a7c2b6; }
+.sync-btn:hover:not(:disabled) { background: #215746; }
+.sync-btn:disabled { opacity: 0.6; cursor: wait; }
 
-/* GraphRAG Visual Engine Bar */
-.graph-board {
-  margin-top: 22px; padding: 16px 18px;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(173, 212, 193, 0.22);
+/* Main Split Layout */
+.layout {
+  max-width: 1280px;
+  margin: 20px auto;
+  padding: 0 20px 40px;
+  display: grid;
+  grid-template-columns: 420px minmax(0, 1fr);
+  gap: 22px;
+  align-items: start;
+}
+
+/* Left: Chatbot Panel */
+.chat-panel {
+  background: var(--surface);
+  border: 1px solid var(--line);
   border-radius: var(--radius);
-  backdrop-filter: blur(8px);
+  box-shadow: 0 8px 24px rgba(15, 41, 34, 0.06);
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 105px);
+  min-height: 560px;
+  max-height: 780px;
+  position: sticky;
+  top: 20px;
+  overflow: hidden;
 }
-.graph-board-header {
-  display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;
-  margin-bottom: 12px;
+.chat-header {
+  padding: 16px 18px;
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 }
-.graph-board-title {
-  font-size: 14px; font-weight: 750; color: var(--accent);
-  display: flex; align-items: center; gap: 8px;
+.chat-header h2 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 800;
 }
-.graph-kpis {
-  display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 12px;
+.chat-header small {
+  display: block;
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 2px;
 }
-.graph-kpi {
-  background: rgba(10, 31, 24, 0.55);
-  border: 1px solid rgba(173, 212, 193, 0.18);
-  padding: 10px 13px; border-radius: 7px;
+.reset-btn {
+  border: 1px solid var(--line);
+  background: #fff;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 5px 10px;
+  border-radius: 8px;
+  cursor: pointer;
 }
-.graph-kpi .k-label { font-size: 11px; color: #a8c3b8; }
-.graph-kpi .k-val { font-size: 17px; font-weight: 800; color: #fff; margin-top: 2px; }
-.graph-triples-wrap {
-  border-top: 1px solid rgba(173, 212, 193, 0.16); padding-top: 10px;
-}
-.graph-triples-label { font-size: 11.5px; color: #b5cec3; margin-bottom: 6px; }
-.graph-triples { display: flex; flex-wrap: wrap; gap: 6px; }
-.graph-triple {
-  display: inline-flex; align-items: center; gap: 5px;
-  padding: 3px 9px; background: rgba(255, 255, 255, 0.09);
-  border: 1px solid rgba(212, 236, 104, 0.28);
-  border-radius: 5px; font-size: 11.5px; color: #eef5f1;
-}
-.graph-triple b { color: var(--accent); font-weight: 700; }
+.reset-btn:hover { color: var(--ink); background: var(--bg); }
 
-/* Step Workflow Bar */
-.step-bar {
-  background: var(--surface); border-bottom: 1px solid var(--line);
-  padding: 0 max(20px, calc((100% - 1260px) / 2));
-  position: sticky; top: 0; z-index: 20;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.03);
+/* Collected Conditions Summary Bar inside Chat */
+.active-filters {
+  padding: 10px 16px;
+  background: var(--brand-soft);
+  border-bottom: 1px solid #cfe4da;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  font-size: 12px;
 }
-.step-list {
-  display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;
-  max-width: 1260px; margin: 0 auto;
-}
-.step-item {
-  display: flex; align-items: center; gap: 10px;
-  padding: 12px 10px; text-decoration: none; color: var(--ink-soft);
-  border-bottom: 3px solid transparent; font-size: 13px;
-}
-.step-item:hover { color: var(--brand); border-bottom-color: var(--brand); }
-.step-num {
-  width: 24px; height: 24px; border-radius: 50%;
-  background: var(--brand-light); color: var(--brand);
-  font-weight: 800; font-size: 12px; display: grid; place-items: center; flex-shrink: 0;
-}
-.step-text b { display: block; color: var(--ink); font-size: 13px; }
-.step-text span { font-size: 11.5px; color: var(--muted); }
-
-/* Main Container & 2-Column Workspace */
-.container {
-  max-width: 1260px; margin: 22px auto; padding: 0 20px 60px;
-}
-.stats-row {
-  display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 18px;
-}
-.stat-card {
-  background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
-  padding: 14px 16px; box-shadow: var(--shadow); position: relative; overflow: hidden;
-}
-.stat-card::before {
-  content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--brand);
-}
-.stat-card .label { font-size: 12px; color: var(--muted); font-weight: 650; }
-.stat-card .value { font-size: 22px; font-weight: 800; color: var(--brand-dark); margin: 3px 0; }
-.stat-card .sub { font-size: 11.5px; color: var(--muted); }
-
-/* Quick Skill Filter Bar */
-.skill-bar {
-  background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
-  padding: 13px 16px; margin-bottom: 20px; box-shadow: var(--shadow);
-  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
-}
-.skill-bar-title { font-size: 12.5px; font-weight: 750; color: var(--ink-soft); white-space: nowrap; }
-.chips { display: flex; flex-wrap: wrap; gap: 6px; }
-.chip {
-  display: inline-flex; align-items: center; gap: 5px;
-  padding: 4px 10px; border-radius: 6px;
-  background: var(--brand-light); border: 1px solid #cce3d8;
-  color: var(--brand-dark); font-size: 12px; font-weight: 600;
-  cursor: pointer; transition: background 0.15s, transform 0.1s;
-}
-.chip:hover { background: #d4ebe0; transform: translateY(-1px); }
-.chip b { color: var(--brand); font-weight: 800; }
-
-/* Workspace Grid */
-.workspace {
-  display: grid; grid-template-columns: 410px minmax(0, 1fr); gap: 22px; align-items: start;
-}
-.sidebar {
-  display: flex; flex-direction: column; gap: 16px;
-  position: sticky; top: 68px;
-}
-.panel {
-  background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
-  padding: 18px; box-shadow: var(--shadow);
-}
-.panel-header {
-  display: flex; align-items: center; justify-content: space-between; gap: 8px;
-  margin-bottom: 10px; padding-bottom: 8px; border-bottom: 1px solid var(--line);
-}
-.panel-header h2 { margin: 0; font-size: 16px; font-weight: 800; color: var(--ink); }
-.step-tag {
-  font-size: 11px; font-weight: 750; padding: 2px 8px; border-radius: 4px;
-  background: var(--brand-light); color: var(--brand);
-}
-.guide-box {
-  background: var(--surface-alt); border-left: 3px solid var(--brand);
-  padding: 9px 11px; border-radius: 0 6px 6px 0; font-size: 12px; color: var(--ink-soft);
-  margin-bottom: 12px;
+.filter-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: #fff;
+  border: 1px solid #b7d7c8;
+  color: var(--brand);
+  font-weight: 700;
+  font-size: 11.5px;
 }
 
-/* Forms & Inputs */
-.field { margin-bottom: 10px; }
-.field label, .label {
-  display: block; font-size: 12px; font-weight: 700; color: var(--ink-soft); margin-bottom: 4px;
-}
-.field input, .field select, .field textarea {
-  width: 100%; border: 1px solid #bfd0c7; border-radius: 7px;
-  padding: 8px 10px; font: inherit; font-size: 13px; color: var(--ink); background: #fff;
-}
-.field input, .field select { height: 38px; }
-.field textarea { resize: vertical; }
-.field input:focus, .field select:focus, .field textarea:focus {
-  outline: 2px solid #8ab8a3; border-color: var(--brand);
-}
-.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-.check {
-  display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--ink-soft);
-  cursor: pointer; user-select: none; margin: 2px 0 8px;
-}
-.button {
-  height: 40px; padding: 0 16px; border-radius: 7px; border: 0;
-  background: var(--brand); color: #fff; font-weight: 750; font-size: 13.5px;
-  cursor: pointer; transition: background 0.15s; width: 100%;
-}
-.button:hover:not(:disabled) { background: var(--brand-dark); }
-.button:disabled { opacity: 0.6; cursor: wait; }
-.clear-button {
-  height: 34px; padding: 0 11px; border-radius: 6px;
-  border: 1px solid var(--line); background: #fff; color: var(--ink-soft);
-  font-size: 12px; font-weight: 600; cursor: pointer;
-}
-.clear-button:hover { background: var(--surface-alt); color: var(--ink); }
-.status { font-size: 12px; color: var(--brand); margin-top: 8px; min-height: 18px; font-weight: 600; }
-
-/* Tabs for Profile Input */
-.mode-tabs {
-  display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; margin-bottom: 12px;
-  background: var(--surface-alt); padding: 4px; border-radius: 8px; border: 1px solid var(--line);
-}
-.mode-tab {
-  border: 0; background: transparent; padding: 6px 4px; border-radius: 6px;
-  font-size: 12px; font-weight: 700; color: var(--muted); cursor: pointer;
-}
-.mode-tab.active { background: var(--brand); color: #fff; }
+/* Chat Messages Stream */
 .chat-messages {
-  min-height: 95px; max-height: 180px; overflow: auto; padding: 10px;
-  background: var(--surface-alt); border: 1px solid var(--line); border-radius: 8px; margin-bottom: 8px;
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: #f9fbfa;
 }
-.chat-bubble {
-  max-width: 92%; padding: 7px 10px; border-radius: 9px; margin: 5px 0;
-  font-size: 12.5px; white-space: pre-wrap;
+.bubble {
+  max-width: 88%;
+  padding: 11px 14px;
+  border-radius: 14px;
+  font-size: 13.5px;
+  line-height: 1.5;
+  white-space: pre-wrap;
 }
-.chat-bubble.bot { background: #fff; border: 1px solid var(--line); }
-.chat-bubble.user { background: #d6ede2; margin-left: auto; font-weight: 600; }
-.chat-input { display: flex; gap: 6px; margin-bottom: 6px; }
-.chat-input input { flex: 1; height: 36px; border: 1px solid #bfd0c7; border-radius: 6px; padding: 0 9px; font-size: 12.5px; }
-.chat-input .button { width: auto; height: 36px; padding: 0 13px; }
-
-/* Right Column: Search & Results */
-.search-bar-panel {
-  background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
-  padding: 16px 18px; margin-bottom: 16px; box-shadow: var(--shadow);
+.bubble.bot {
+  background: #fff;
+  border: 1px solid var(--line);
+  align-self: flex-start;
+  border-top-left-radius: 4px;
 }
-.search-form-grid {
-  display: grid; grid-template-columns: 1fr 170px 185px 100px; gap: 10px; align-items: end;
-}
-.search-form-grid .field { margin-bottom: 0; }
-.result-header {
-  display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
-  margin-bottom: 12px;
-}
-.result-header h2 { margin: 0; font-size: 18px; font-weight: 800; }
-.toolbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.toolbar input, .toolbar select {
-  height: 35px; border: 1px solid #bfd0c7; border-radius: 6px; padding: 0 10px;
-  background: #fff; font-size: 12.5px;
+.bubble.user {
+  background: var(--brand);
+  color: #fff;
+  align-self: flex-end;
+  border-top-right-radius: 4px;
+  font-weight: 600;
 }
 
-/* Job Cards */
-.jobs { display: grid; gap: 14px; }
+/* Quick Select Chips inside Chat */
+.quick-replies {
+  padding: 10px 14px;
+  border-top: 1px solid var(--line);
+  background: #fff;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.quick-chip {
+  border: 1px solid #c5d9cf;
+  background: var(--brand-soft);
+  color: var(--brand);
+  padding: 5px 11px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.12s, transform 0.1s;
+}
+.quick-chip:hover {
+  background: #d3e9df;
+  transform: translateY(-1px);
+}
+
+/* Chat Input & File Upload Footer */
+.chat-footer {
+  padding: 12px 14px;
+  border-top: 1px solid var(--line);
+  background: #fff;
+}
+.chat-form {
+  display: flex;
+  gap: 8px;
+}
+.chat-form input {
+  flex: 1;
+  height: 42px;
+  border: 1px solid #bfd0c7;
+  border-radius: 10px;
+  padding: 0 12px;
+  font: inherit;
+  font-size: 13.5px;
+}
+.chat-form input:focus {
+  outline: 2px solid #8ab8a3;
+  border-color: var(--brand);
+}
+.send-btn {
+  height: 42px;
+  padding: 0 18px;
+  border-radius: 10px;
+  border: 0;
+  background: var(--brand);
+  color: #fff;
+  font-weight: 700;
+  font-size: 13.5px;
+  cursor: pointer;
+}
+.resume-upload-bar {
+  margin-top: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12px;
+  color: var(--muted);
+}
+.file-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--brand);
+  font-weight: 700;
+  cursor: pointer;
+}
+.file-label:hover { text-decoration: underline; }
+
+/* Right: Recommended Job Feed */
+.feed-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+.feed-title h2 {
+  margin: 0;
+  font-size: 19px;
+  font-weight: 800;
+}
+.feed-title span {
+  font-size: 13px;
+  color: var(--muted);
+}
+.feed-tools {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.feed-tools input, .feed-tools select {
+  height: 36px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 0 10px;
+  background: #fff;
+  font-size: 12.5px;
+}
+
+/* Clean Job Cards */
+.jobs {
+  display: grid;
+  gap: 12px;
+}
 .job {
-  background: var(--surface); border: 1px solid var(--line);
-  border-left: 4px solid var(--brand); border-radius: var(--radius);
-  padding: 18px 20px; box-shadow: var(--shadow);
-  transition: border-color 0.15s, transform 0.12s;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 18px 20px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.03);
+  transition: border-color 0.15s;
 }
-.job:hover { border-color: #6ca38b; }
-.job-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
-.job h3 { margin: 0 0 4px; font-size: 17.5px; color: var(--brand-dark); line-height: 1.35; }
-.meta { font-size: 12px; color: var(--muted); }
-.badge {
-  font-size: 11px; font-weight: 750; padding: 4px 10px; border-radius: 999px; white-space: nowrap;
+.job:hover { border-color: #82b39d; }
+.job-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
 }
-.badge.real { background: var(--match-bg); color: var(--match); border: 1px solid #b7e4c7; }
+.job h3 {
+  margin: 0 0 5px;
+  font-size: 17px;
+  color: var(--ink);
+}
+.job-meta {
+  font-size: 13px;
+  color: var(--muted);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.salary-badge {
+  background: var(--brand-soft);
+  color: var(--brand);
+  font-weight: 800;
+  font-size: 12.5px;
+  padding: 5px 11px;
+  border-radius: 8px;
+  white-space: nowrap;
+}
 
-/* Visual Match & GraphRAG Boxes inside Job Card */
-.analysis-box {
-  margin-top: 12px; padding: 12px 14px; border-radius: 8px;
-  background: var(--surface-alt); border: 1px solid var(--line);
+/* Match & Graph Badges inside Card */
+.match-strip {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: #f8fbf9;
+  border: 1px solid #e2ece7;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
 }
-.analysis-title {
-  font-size: 12.5px; font-weight: 800; color: var(--ink);
-  display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 6px;
+.pill-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
 }
-.coverage-bar-wrap {
-  height: 8px; background: #e2ece7; border-radius: 999px; overflow: hidden; margin: 6px 0 8px;
+.pill {
+  font-size: 11.5px;
+  font-weight: 700;
+  padding: 3px 9px;
+  border-radius: 6px;
 }
-.coverage-bar-fill {
-  height: 100%; background: linear-gradient(90deg, #1b7a56, #52b788); border-radius: 999px;
-}
-.skill-diff-row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 5px; font-size: 12px; }
-.skill-pill {
-  display: inline-flex; align-items: center; gap: 4px;
-  padding: 2px 8px; border-radius: 5px; font-size: 11.5px; font-weight: 700;
-}
-.skill-pill.match { background: var(--match-bg); color: var(--match); border: 1px solid #a3dfb8; }
-.skill-pill.unlisted { background: var(--warn-bg); color: var(--warn); border: 1px solid #fde68a; }
-.cond-pills { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
-.cond-pill {
-  padding: 3px 8px; border-radius: 5px; font-size: 11.5px; font-weight: 700;
-}
-.cond-pill.match { background: var(--match-bg); color: var(--match); }
-.cond-pill.mismatch { background: var(--miss-bg); color: var(--miss); }
-.cond-pill.unknown { background: #f1f5f9; color: #475569; }
+.pill.match { background: var(--match-bg); color: var(--match); }
+.pill.warn { background: var(--warn-bg); color: var(--warn); }
+.pill.graph { background: #e8effc; color: #1e40af; }
 
-.graph-path-chips { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 6px; }
-.graph-path-chip {
-  display: inline-flex; align-items: center; gap: 4px;
-  padding: 3px 8px; background: #e3f1ea; border: 1px solid #bad9c9;
-  border-radius: 5px; font-size: 11px; color: #164432; font-weight: 650;
+.job-bottom {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid #eef2f0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12px;
+  color: var(--muted);
 }
-.graph-path-chip i { font-style: normal; color: #1f6e50; font-weight: 800; }
+.job-link {
+  color: var(--brand);
+  font-weight: 800;
+  text-decoration: none;
+}
+.job-link:hover { text-decoration: underline; }
 
-.details {
-  display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px 14px;
-  margin: 12px 0; padding-top: 10px; border-top: 1px solid #ebf0ed;
-}
-.detail { font-size: 12.5px; }
-.job details { margin-top: 10px; border-top: 1px solid #ebf0ed; padding-top: 8px; }
-.job summary { cursor: pointer; color: var(--brand); font-size: 12.5px; font-weight: 750; }
-.evidence-list { margin-top: 8px; display: grid; gap: 6px; }
-.evidence {
-  border-left: 3px solid var(--brand); background: var(--surface-alt);
-  padding: 7px 10px; font-size: 12px;
-}
-.quote { color: var(--ink-soft); margin-top: 2px; }
-.source {
-  font-size: 12px; color: var(--muted); margin-top: 10px;
-  display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px;
-}
-.source a {
-  color: var(--brand); font-weight: 800; text-decoration: none;
-  padding: 4px 10px; background: var(--brand-light); border-radius: 5px;
-}
-.source a:hover { background: #cfe6dc; }
 .empty {
-  border: 1px dashed #b2c5bc; background: var(--surface);
-  border-radius: var(--radius); padding: 36px 20px; text-align: center; color: var(--muted);
-}
-footer {
-  border-top: 1px solid var(--line); margin-top: 36px; padding-top: 16px;
-  font-size: 12px; color: var(--muted);
+  background: #fff;
+  border: 1px dashed var(--line);
+  border-radius: var(--radius);
+  padding: 48px 20px;
+  text-align: center;
+  color: var(--muted);
 }
 
-@media (max-width: 980px) {
-  .workspace { grid-template-columns: 1fr; }
-  .sidebar { position: static; }
-  .search-form-grid { grid-template-columns: 1fr 1fr; }
-  .graph-kpis, .stats-row { grid-template-columns: 1fr 1fr; }
-}
-@media (max-width: 560px) {
-  .step-list, .search-form-grid, .details, .grid-2 { grid-template-columns: 1fr; }
+@media (max-width: 920px) {
+  .layout { grid-template-columns: 1fr; }
+  .chat-panel { position: static; height: 500px; }
 }
 </style>
 </head>
 <body>
 
-<header class="hero">
-  <div class="hero-top">
-    <div>
-      <span class="hero-badge"><span class="dot"></span>고용24(Work24) 부산·울산·경남 실시간 채용 연동</span>
-      <h1>부울경 채용공고 GraphRAG 탐색 &amp; 내 이력 미스매칭 분석</h1>
-      <p id="data-notice">고용24 OpenAPI의 부산·울산·경남 실제 채용공고를 자동 수집하여 지식 그래프(Property Graph)를 구축하고, 내 이력의 보유 기술과 공고 요건 간의 일치·누락(확인 필요) 항목을 근거 중심으로 비교합니다.</p>
-    </div>
-    <div class="hero-actions">
-      <button class="sync-btn" id="sync-work24-button" type="button">🔄 고용24 부울경 공고 추가 수집 (+300건)</button>
-      <span class="sync-sub">클릭할 때마다 다음 페이지의 부울경 실제 공고를 DB에 누적 적재합니다</span>
-    </div>
+<header class="topbar">
+  <div class="brand">
+    <h1>부울경 채용 AI 매칭</h1>
+    <span class="brand-sub">챗봇과 대화하면 고용24 실시간 공고를 GraphRAG로 찾아 추천합니다</span>
   </div>
-
-  <!-- GraphRAG Visual Engine Board -->
-  <div id="graphrag-status-panel" class="graph-board">
-    <div class="graph-board-header">
-      <div class="graph-board-title"><span class="dot" style="width:9px;height:9px;border-radius:50%;background:#d4ec68;display:inline-block"></span>GraphRAG 지식 그래프 엔진 가동 현황 (In-Memory Property Graph)</div>
-      <span style="font-size:11.5px;color:#d4ec68;font-weight:700">공고 ↔ 지역 · 직무 · 요구기술 · 복지 · 기업 그래프 실시간 연결</span>
-    </div>
-    <div class="graph-kpis">
-      <div class="graph-kpi"><div class="k-label">총 그래프 노드 (Nodes)</div><div id="g-nodes" class="k-val">—</div></div>
-      <div class="graph-kpi"><div class="k-label">총 관계 간선 (Edges)</div><div id="g-edges" class="k-val">—</div></div>
-      <div class="graph-kpi"><div class="k-label">추출된 엔티티 구성</div><div id="g-kinds" class="k-val" style="font-size:12.5px">—</div></div>
-      <div class="graph-kpi"><div class="k-label">활성 그래프 관계 (Relationships)</div><div id="g-rels" class="k-val" style="font-size:12.5px">—</div></div>
-    </div>
-    <div class="graph-triples-wrap">
-      <div class="graph-triples-label">실시간 추출된 지식 그래프 관계 경로 샘플 (클릭 없이 자동 구축된 Node → Edge → Node):</div>
-      <div id="g-triples" class="graph-triples"><span style="font-size:12px;color:#b9cbbf">고용24 부울경 공고에서 그래프 노드를 추출하는 중입니다…</span></div>
-    </div>
+  <div class="top-right">
+    <span class="graph-pill">
+      <span class="dot"></span>
+      <span id="graph-summary-text">GraphRAG 지식 그래프 준비 중…</span>
+    </span>
+    <button class="sync-btn" id="sync-btn" type="button">🔄 고용24 공고 +300건 더 가져오기</button>
   </div>
 </header>
 
-<nav class="step-bar" aria-label="이용 흐름 안내">
-  <div class="step-list">
-    <a class="step-item" href="#results-section">
-      <span class="step-num">1</span>
-      <div class="step-text"><b>부울경 실공고 &amp; GraphRAG 탐색</b><span>검색어·지역·기술 칩으로 실시간 공고 필터링</span></div>
-    </a>
-    <a class="step-item" href="#profile-section">
-      <span class="step-num">2</span>
-      <div class="step-text"><b>내 이력 기술 추출 (미스매칭 점검)</b><span>이력서 파일·직접입력으로 보유/누락 기술 진단</span></div>
-    </a>
-    <a class="step-item" href="#conditions-section">
-      <span class="step-num">3</span>
-      <div class="step-text"><b>희망 조건 설정 &amp; 맞춤 매칭</b><span>필수 조건(하드 필터)과 선호 조건 점수 산출</span></div>
-    </a>
-  </div>
-</nav>
+<main class="layout">
+  <!-- 왼쪽: 단일 챗봇 인터페이스 -->
+  <section class="chat-panel" aria-label="조건 입력 챗봇">
+    <div class="chat-header">
+      <div>
+        <h2>💬 채용 매칭 챗봇</h2>
+        <small>답변할 때마다 오른쪽 추천 공고가 실시간으로 좁혀집니다</small>
+      </div>
+      <button class="reset-btn" id="reset-btn" type="button">처음부터</button>
+    </div>
 
-<main class="container">
-  <!-- Top Statistics Cards -->
-  <section class="stats-row">
-    <div class="stat-card"><div class="label">적재된 부울경 승인 공고</div><div id="approved" class="value">—</div><div id="approved-sub" class="sub">고용24 실데이터 기준</div></div>
-    <div class="stat-card"><div class="label">연봉 하한 평균</div><div id="salary" class="value">—</div><div id="salary-sub" class="sub">만원/연 환산 기준</div></div>
-    <div class="stat-card"><div class="label">급여 추후협의/미기재</div><div id="not-stated" class="value">—</div><div class="sub">임의 0원 처리 안 함</div></div>
-    <div class="stat-card"><div class="label">검수 대기/제외</div><div id="pending" class="value">—</div><div class="sub">근거 미비 공고 노출 차단</div></div>
+    <div class="active-filters" id="active-filters">
+      <span style="color:var(--muted)">현재 조건: 전체 부울경 공고</span>
+    </div>
+
+    <div class="chat-messages" id="chat-messages" role="log" aria-live="polite"></div>
+
+    <div class="quick-replies" id="quick-replies"></div>
+
+    <div class="chat-footer">
+      <form class="chat-form" id="chat-form">
+        <input id="chat-input" maxlength="300" placeholder="답변을 입력하거나 위 버튼을 눌러보세요…" autocomplete="off">
+        <button class="send-btn" type="submit">전송</button>
+      </form>
+      <div class="resume-upload-bar">
+        <label class="file-label" for="resume-file">
+          📎 이력서 파일(PDF/DOCX/TXT)로 기술 한 번에 입력하기
+        </label>
+        <input id="resume-file" type="file" accept=".txt,.md,.markdown,.pdf,.docx" hidden>
+        <span id="resume-status"></span>
+      </div>
+    </div>
   </section>
 
-  <!-- Observed Skills Quick Filter -->
-  <section class="skill-bar">
-    <span class="skill-bar-title">💡 공고에서 자주 관찰된 기술 (클릭하면 즉시 검색 &amp; 내 보유 기술에 추가):</span>
-    <div id="skills" class="chips"><span class="sub">불러오는 중…</span></div>
-  </section>
-
-  <!-- 2-Column Interactive Workspace -->
-  <div class="workspace">
-    <!-- Left Sidebar: Profile & Conditions -->
-    <aside class="sidebar">
-      <section id="profile-section" class="panel">
-        <div class="panel-header">
-          <h2>내 이력으로 공고 미스매칭 분석</h2>
-          <span class="step-tag">STEP 1 · 이력 기술</span>
-        </div>
-        <div class="guide-box">
-          <b>어떤 도움이 되나요?</b><br>
-          내 이력서의 기술과 공고 요구 기술을 1:1 대조하여 <b>일치하는 기술(강점)</b>과 <b>이력서에 빠진 기술(보완/확인 포인트)</b>을 찾아줍니다. 원문은 브라우저에서만 읽으며 서버에 저장되지 않습니다.
-        </div>
-
-        <div class="mode-tabs" role="tablist">
-          <button type="button" class="mode-tab active" data-mode="form">직접 입력</button>
-          <button type="button" class="mode-tab" data-mode="resume">파일 자동추출</button>
-          <button type="button" class="mode-tab" data-mode="chat">단계별 문답</button>
-        </div>
-        <select id="profile-mode" class="sr-only" aria-hidden="true">
-          <option value="form" selected>이력 항목 직접 입력</option>
-          <option value="resume">파일에서 기술 추출</option>
-          <option value="chat">챗봇 대화로 작성</option>
+  <!-- 오른쪽: 실시간 추천 채용공고 리스트 -->
+  <section aria-label="추천 채용공고 목록">
+    <div class="feed-header">
+      <div class="feed-title">
+        <h2 id="feed-heading">실시간 부울경 채용공고</h2>
+        <span id="result-count">불러오는 중…</span>
+      </div>
+      <div class="feed-tools">
+        <input id="result-filter" type="search" placeholder="결과 내 검색 (회사·제목·기술)">
+        <select id="result-sort">
+          <option value="relevance">추천/GraphRAG 점수순</option>
+          <option value="newest">최신 등록순</option>
         </select>
-
-        <div id="profile-form" class="profile-mode">
-          <div class="field">
-            <label for="profile-skills">내 보유 기술·자격·도구 (쉼표로 구분)</label>
-            <textarea id="profile-skills" maxlength="1000" rows="2" placeholder="예: Python, SQL, CAD, PLC, 품질관리, 지게차"></textarea>
-          </div>
-          <div class="field">
-            <label for="profile-experience">경력·프로젝트 메모 (개인정보 제외)</label>
-            <textarea id="profile-experience" maxlength="1000" rows="2" placeholder="예: 자동차 부품 품질관리 2년 / 데이터 분석 프로젝트"></textarea>
-          </div>
-        </div>
-
-        <div id="profile-resume" class="profile-mode" hidden>
-          <div class="field">
-            <label for="resume-file">이력서 파일 선택 (TXT, MD, PDF, DOCX)</label>
-            <input id="resume-file" type="file" accept=".txt,.md,.markdown,.pdf,.docx">
-          </div>
-          <div id="resume-status" class="status">파일을 선택하면 기술 키워드를 자동 추출해 입력란에 채웁니다.</div>
-        </div>
-
-        <div id="profile-chat" class="profile-mode" hidden>
-          <div id="chat-messages" class="chat-messages" role="log" aria-live="polite"></div>
-          <form id="chat-form" class="chat-input">
-            <label class="sr-only" for="chat-reply">챗봇 응답</label>
-            <input id="chat-reply" maxlength="500" placeholder="기술을 쉼표로 구분해 입력하세요" autocomplete="off">
-            <button class="button" type="submit">입력</button>
-          </form>
-          <button id="chat-restart" class="clear-button" type="button">대화 초기화</button>
-        </div>
-      </section>
-
-      <section id="conditions-section" class="panel">
-        <div class="panel-header">
-          <h2>희망 조건 기반 맞춤 매칭</h2>
-          <span class="step-tag">STEP 2 · 조건 필터</span>
-        </div>
-        <div class="guide-box">
-          <b>어떤 도움이 되나요?</b><br>
-          <b>필수 조건</b>은 미달 공고를 확실히 걸러내고, <b>선호 조건</b>은 가산점을 매겨 가장 잘 맞는 부울경 공고 순으로 정렬해 줍니다.
-        </div>
-
-        <form id="recommend-form">
-          <div class="grid-2">
-            <div class="field">
-              <label for="rec-region">희망 근무 지역</label>
-              <input id="rec-region" maxlength="100" placeholder="예: 부산, 울산, 창원" autocomplete="off">
-            </div>
-            <div class="field">
-              <label for="rec-region-mode">지역 적용 방식</label>
-              <select id="rec-region-mode">
-                <option value="preferred" selected>선호 (가점)</option>
-                <option value="required">필수 (불일치 제외)</option>
-                <option value="ignore">무관</option>
-              </select>
-            </div>
-          </div>
-
-          <div class="grid-2">
-            <div class="field">
-              <label for="rec-role">희망 직무/업종 키워드</label>
-              <input id="rec-role" maxlength="100" placeholder="예: 제조, 소프트웨어, 기계" autocomplete="off">
-            </div>
-            <div class="field">
-              <label for="rec-role-mode">직무 적용 방식</label>
-              <select id="rec-role-mode">
-                <option value="preferred" selected>선호 (가점)</option>
-                <option value="required">필수 (불일치 제외)</option>
-                <option value="ignore">무관</option>
-              </select>
-            </div>
-          </div>
-
-          <div class="grid-2">
-            <div class="field">
-              <label for="rec-required-skills">공고 필수 포함 기술</label>
-              <input id="rec-required-skills" maxlength="500" placeholder="예: Python, CAD" autocomplete="off">
-            </div>
-            <div class="field">
-              <label for="rec-preferred-skills">선호 기술 (가점)</label>
-              <input id="rec-preferred-skills" maxlength="500" placeholder="예: SQL, PLC" autocomplete="off">
-            </div>
-          </div>
-
-          <div class="grid-2">
-            <div class="field">
-              <label for="rec-salary">희망 최소 연봉 (만원/연)</label>
-              <input id="rec-salary" type="number" min="0" max="10000000" placeholder="예: 3200">
-            </div>
-            <div class="field">
-              <label for="rec-benefits">선호 복리후생</label>
-              <input id="rec-benefits" maxlength="500" placeholder="예: 기숙사, 통근버스" autocomplete="off">
-            </div>
-          </div>
-          <label class="check"><input id="rec-salary-required" type="checkbox">최소 연봉 미달/미기재 공고 제외 (필수)</label>
-
-          <div class="grid-2">
-            <div class="field">
-              <label for="rec-employment">고용 형태</label>
-              <input id="rec-employment" maxlength="80" placeholder="예: 정규직">
-            </div>
-            <div class="field">
-              <label for="rec-experience">경력 조건</label>
-              <input id="rec-experience" maxlength="80" placeholder="예: 신입, 무관">
-            </div>
-          </div>
-          <div style="display:flex;gap:12px;flex-wrap:wrap">
-            <label class="check"><input id="rec-employment-required" type="checkbox">고용형태 필수</label>
-            <label class="check"><input id="rec-experience-required" type="checkbox">경력조건 필수</label>
-          </div>
-
-          <div class="field" hidden>
-            <input id="rec-work-mode" maxlength="80">
-            <input id="rec-work-mode-required" type="checkbox">
-          </div>
-
-          <button class="button" id="recommend-button" type="submit" style="margin-top:6px">🎯 내 이력 &amp; 조건으로 맞춤 공고 매칭 실행</button>
-        </form>
-        <div id="recommend-status" class="status" role="status" aria-live="polite">좌측 이력 기술이나 희망 조건을 입력하고 매칭 실행을 눌러보세요.</div>
-      </section>
-    </aside>
-
-    <!-- Right Content: Search Bar + Job Cards -->
-    <section id="results-section">
-      <div class="search-bar-panel">
-        <form id="search-form" class="search-form-grid">
-          <div class="field">
-            <label for="query">키워드 / 기술 / 기업명 검색</label>
-            <input id="query" maxlength="200" placeholder="예: Python, CAD, 품질관리, 전기, 부산, 울산…" autocomplete="off">
-          </div>
-          <div class="field">
-            <label for="region">부울경 지역 선택</label>
-            <select id="region"><option value="">전체 지역 (부울경)</option></select>
-          </div>
-          <div class="field">
-            <label for="mode">검색 엔진 모드</label>
-            <select id="mode">
-              <option value="hybrid" selected>⚡ 하이브리드 GraphRAG</option>
-              <option value="graph">🕸️ 그래프 엔티티 탐색</option>
-              <option value="keyword">🔍 키워드 단순 검색</option>
-            </select>
-          </div>
-          <button class="button" id="search-button" type="submit">공고 검색</button>
-        </form>
-        <div id="status" class="status" role="status" aria-live="polite"></div>
       </div>
+    </div>
 
-      <div class="result-header">
-        <div>
-          <h2>채용공고 탐색 및 매칭 결과</h2>
-          <span id="result-count" class="meta" aria-live="polite"></span>
-        </div>
-        <div class="toolbar">
-          <input id="result-filter" type="search" aria-label="결과 내 검색" placeholder="결과 내 제목·기술·지역 즉시 필터" autocomplete="off">
-          <select id="result-sort" aria-label="결과 정렬">
-            <option value="relevance">매칭/GraphRAG 관련도순</option>
-            <option value="newest">최신 등록일순</option>
-            <option value="title">회사·제목 가나다순</option>
-          </select>
-          <button id="clear-result-filter" class="clear-button" type="button">초기화</button>
-        </div>
-      </div>
-
-      <div id="results" class="jobs" aria-live="polite"></div>
-    </section>
-  </div>
-
-  <footer>
-    <b>해석 및 근거 원칙:</b> 본 시스템은 고용24(Work24) OpenAPI의 실제 부울경 공고 원문에서 추출된 근거(Evidence)와 지식 그래프 경로만 표시합니다. 이력서에 적히지 않은 기술은 '역량 부족'이 아니라 지원 전 '확인 필요 항목'으로 안내하며, 합격 확률을 임의로 예측하지 않습니다.
-  </footer>
+    <div id="results" class="jobs" aria-live="polite"></div>
+  </section>
 </main>
 
 <script>
 const $ = id => document.getElementById(id);
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
-// Mode tab switching
-document.querySelectorAll('.mode-tab').forEach(btn => {
-  btn.addEventListener('click', () => {
-    document.querySelectorAll('.mode-tab').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    const mode = btn.getAttribute('data-mode');
-    $('profile-mode').value = mode;
-    $('profile-mode').dispatchEvent(new Event('change'));
-  });
-});
-
-function drawGraphStats(d) {
-  const g = d.graph_stats;
-  if (!g || !$('g-nodes')) return;
-  $('g-nodes').textContent = Number(g.node_count || 0).toLocaleString('ko-KR') + '개';
-  $('g-edges').textContent = Number(g.edge_count || 0).toLocaleString('ko-KR') + '개';
-  const kMap = {Posting:'공고', Location:'지역', Role:'직무', Skill:'기술', Benefit:'복지', Company:'기업', Source:'출처'};
-  const kinds = Object.entries(g.node_kinds || {}).map(([k,v]) => `${kMap[k]||k} ${v}`).join(' · ');
-  $('g-kinds').textContent = kinds || '—';
-  const rMap = {LOCATED_IN:'지역연결', HAS_ROLE:'직무연결', REQUIRES_SKILL:'요구기술', OFFERS_BENEFIT:'제공복지', POSTED_JOB:'채용기업'};
-  const rels = Object.entries(g.relationship_kinds || {}).filter(([k]) => k !== 'FROM_SOURCE').map(([k,v]) => `${rMap[k]||k}(${v})`).join(' · ');
-  $('g-rels').textContent = rels || '—';
-  const triples = g.sample_triples || [];
-  $('g-triples').innerHTML = triples.length
-    ? triples.map(t => `<span class="graph-triple">[${esc(t.source_kind==='Posting'?'공고':t.source)}] <b>──${esc(t.relationship)}──▶</b> [${esc(t.target)}]</span>`).join('')
-    : '<span style="font-size:12px;color:#b9cbbf">표시할 그래프 경로가 없습니다.</span>';
-}
-
-function drawStats(d) {
-  drawGraphStats(d);
-  if (!d.summary) return;
-  const s = d.summary;
-  $('approved').textContent = Number(s.approved_postings || 0).toLocaleString('ko-KR') + '건';
-  $('approved-sub').textContent = `유효 공고 ${d.quality.valid_records}건 모두 검증 완료`;
-  $('not-stated').textContent = Number(s.salary_not_stated_count || 0).toLocaleString('ko-KR') + '건';
-  $('pending').textContent = Number(d.quality.pending_records || 0).toLocaleString('ko-KR') + '건';
-  $('salary').textContent = s.salary_minimum_mean == null ? '—' : Number(s.salary_minimum_mean).toLocaleString('ko-KR') + '만원';
-  $('salary-sub').textContent = s.salary_comparability_warning || (s.salary_unit ? `단위: ${s.salary_unit} (표기 ${s.salary_minimum_count}건 평균)` : '단일 비교 단위 없음');
-
-  const skills = s.top_skills || [];
-  $('skills').innerHTML = skills.length
-    ? skills.map(([n,c]) => `<button type="button" class="chip" data-skill="${esc(n)}" title="클릭 시 '${esc(n)}' 공고 검색 및 내 보유 기술에 추가">${esc(n)}<b>${c}</b></button>`).join('')
-    : '<span class="sub">추출된 기술 태그가 없습니다.</span>';
-
-  document.querySelectorAll('#skills .chip[data-skill]').forEach(chip => {
-    chip.addEventListener('click', () => {
-      const sk = chip.getAttribute('data-skill');
-      $('query').value = sk;
-      const cur = $('profile-skills').value.split(',').map(x => x.trim()).filter(Boolean);
-      if (!cur.some(x => x.toLowerCase() === sk.toLowerCase())) {
-        cur.push(sk);
-        $('profile-skills').value = cur.join(', ');
-      }
-      search();
-    });
-  });
-
-  const regions = [...new Set(d.regions || [])];
-  const current = $('region').value;
-  $('region').innerHTML = '<option value="">전체 지역 (부울경)</option>' + regions.map(r => `<option value="${esc(r)}">${esc(r)}</option>`).join('');
-  $('region').value = regions.includes(current) ? current : '';
-}
-
-let currentResultData = null;
-const modeLabels = {
-  hybrid: '⚡ 하이브리드 GraphRAG 탐색',
-  graph: '🕸️ 지식 그래프 엔티티 탐색',
-  keyword: '🔍 키워드 검색',
-  deterministic_recommendation_preview: '🎯 내 이력 & 희망 조건 맞춤 매칭'
+// 챗봇 대화 상태
+const state = {
+  region: '',
+  role: '',
+  skills: [],
+  minSalary: null
 };
 
-function drawResults(data) {
-  if (data.graph_stats) drawGraphStats(data);
-  currentResultData = data;
-  renderResultList();
+const STEPS = [
+  {
+    key: 'region',
+    question: '안녕하세요! 부산·울산·경남 중 어느 지역의 일자리를 찾으시나요?',
+    chips: ['전체 지역', '부산', '울산', '경남', '창원', '김해', '양산']
+  },
+  {
+    key: 'role',
+    question: '어떤 직무나 분야를 희망하시나요? (키워드를 입력하거나 선택해 주세요)',
+    chips: ['분야 무관', '소프트웨어/IT', '기계/제조', '품질/생산관리', '전기/전자', '경영/회계', '물류/운전']
+  },
+  {
+    key: 'skills',
+    question: '보유하신 기술이나 자격증이 있다면 알려주세요. 공고 요건과 비교해 드립니다!\n(하단 📎이력서 파일 업로드도 가능)',
+    chips: ['건너뛰기', 'Python', 'CAD', 'PLC', '품질관리', '생산관리', '전기기사', '지게차', '엑셀', 'ERP']
+  },
+  {
+    key: 'salary',
+    question: '희망하시는 최소 연봉(만원)이 있으신가요?',
+    chips: ['연봉 무관', '3000만원 이상', '3500만원 이상', '4000만원 이상']
+  }
+];
+
+let stepIndex = 0;
+let currentResultData = null;
+let topObservedSkills = [];
+
+function addBubble(text, who = 'bot') {
+  const div = document.createElement('div');
+  div.className = `bubble ${who}`;
+  div.textContent = text;
+  $('chat-messages').appendChild(div);
+  $('chat-messages').scrollTop = $('chat-messages').scrollHeight;
 }
 
-function renderResultList() {
-  if (!currentResultData) return;
-  const data = currentResultData, all = data.results || [];
-  const term = $('result-filter').value.trim().toLocaleLowerCase('ko-KR');
-  const sort = $('result-sort').value;
+function renderActiveFilters() {
+  const tags = [];
+  if (state.region) tags.push(`📍 지역: ${state.region}`);
+  if (state.role) tags.push(`🏢 분야: ${state.role}`);
+  if (state.skills.length) tags.push(`🛠️ 내 기술: ${state.skills.join(', ')}`);
+  if (state.minSalary) tags.push(`💰 최소연봉: ${state.minSalary}만원`);
 
-  const rows = all.map(row => ({row})).filter(({row: p}) => {
-    if (!term) return true;
-    const text = [p.title, p.region, p.role_category, p.employment_type, p.work_mode, p.experience, p.source?.name, ...(p.skills||[]), ...(p.benefits||[]), ...(p.matched_terms||[])].join(' ').toLocaleLowerCase('ko-KR');
-    return text.includes(term);
+  $('active-filters').innerHTML = tags.length
+    ? tags.map(t => `<span class="filter-tag">${esc(t)}</span>`).join('')
+    : '<span style="color:var(--muted)">현재 조건: 전체 부울경 공고 (대화하며 조건을 좁혀보세요)</span>';
+}
+
+function renderQuickChips() {
+  const box = $('quick-replies');
+  if (stepIndex < STEPS.length) {
+    let chips = [...STEPS[stepIndex].chips];
+    if (STEPS[stepIndex].key === 'skills' && topObservedSkills.length) {
+      const extra = topObservedSkills.map(([s]) => s).filter(s => !chips.includes(s)).slice(0, 5);
+      chips = [...chips, ...extra];
+    }
+    box.innerHTML = chips.map(c => `<button type="button" class="quick-chip" data-val="${esc(c)}">${esc(c)}</button>`).join('');
+  } else {
+    // 대화 완료 후 언제든 조건 변경/추가 검색 가능한 칩 제공
+    const postChips = ['🔄 처음부터 다시 찾기', '부산만 보기', '울산만 보기', '경남만 보기', '연봉 3500만원 이상'];
+    box.innerHTML = postChips.map(c => `<button type="button" class="quick-chip" data-val="${esc(c)}">${esc(c)}</button>`).join('');
+  }
+
+  box.querySelectorAll('.quick-chip').forEach(btn => {
+    btn.addEventListener('click', () => handleUserInput(btn.getAttribute('data-val')));
   });
+}
 
-  if (sort === 'title') rows.sort((a,b) => (a.row.title || '').localeCompare(b.row.title || '', 'ko-KR'));
-  if (sort === 'newest') rows.sort((a,b) => (b.row.source?.posted_at || '').localeCompare(a.row.source?.posted_at || ''));
+async function handleUserInput(rawText) {
+  const value = rawText.trim();
+  if (!value) return;
 
-  $('result-count').textContent = `표시 ${rows.length}건 (전체 후보 ${all.length}건) · ${modeLabels[data.mode] || data.mode}`;
-
-  if (!rows.length) {
-    $('results').innerHTML = `<div class="empty">${all.length ? '결과 내 필터와 일치하는 공고가 없습니다. 검색어를 지우거나 초기화해 주세요.' : '해당 조건을 모두 만족하는 공고가 없습니다. 좌측 조건에서 [필수] 항목을 [선호]로 완화해 보세요.'}</div>`;
+  if (value === '🔄 처음부터 다시 찾기') {
+    resetChat();
     return;
   }
 
-  $('results').innerHTML = rows.map(({row: p}) => {
-    const s = p.source || {}, sal = p.salary || {}, evidence = p.evidence || [], safeDate = s.posted_at || '미확인';
-    const url = /^https?:\/\//i.test(s.url || '') ? `<a href="${esc(s.url)}" target="_blank" rel="noopener noreferrer">고용24 원문 공고 보기 ↗</a>` : '';
-    const status = ({active:'모집 중', closed:'마감', unknown:'상태 미확인'}[p.recruitment_status] || '상태 미확인');
-    const saltext = sal.status === 'reported' ? (sal.raw || [sal.minimum, sal.maximum].filter(v => v != null).join('~')) : (sal.raw || '급여 추후협의');
+  addBubble(value, 'user');
 
-    // 1) Profile Skill Mismatch Visual Block
-    let profileBlock = '';
+  if (stepIndex < STEPS.length) {
+    const currentKey = STEPS[stepIndex].key;
+
+    if (currentKey === 'region') {
+      state.region = (value === '전체 지역' || value === '무관') ? '' : value.replace(/만 보기$/, '');
+    } else if (currentKey === 'role') {
+      if (value === '분야 무관' || value === '무관') {
+        state.role = '';
+      } else {
+        state.role = value.split('/')[0].trim();
+      }
+    } else if (currentKey === 'skills') {
+      if (value !== '건너뛰기' && value !== '없음') {
+        const added = value.split(',').map(x => x.trim()).filter(Boolean);
+        state.skills = [...new Set([...state.skills, ...added])];
+      }
+    } else if (currentKey === 'salary') {
+      const num = parseInt(value.replace(/[^0-9]/g, ''), 10);
+      state.minSalary = (!isNaN(num) && num > 0) ? num : null;
+    }
+
+    stepIndex++;
+    renderActiveFilters();
+    await updateJobFeed();
+
+    if (stepIndex < STEPS.length) {
+      addBubble(STEPS[stepIndex].question, 'bot');
+    } else {
+      addBubble('조건 설정이 완료되었습니다! 오른쪽에 맞춤 추천 공고를 정리했어요.\n추가로 찾고 싶은 키워드나 기술이 있으면 언제든 채팅창에 입력해 주세요.', 'bot');
+    }
+    renderQuickChips();
+  } else {
+    // 완료 후 자유 입력: 지역/연봉/키워드 즉시 반영
+    if (value.includes('부산')) state.region = '부산';
+    else if (value.includes('울산')) state.region = '울산';
+    else if (value.includes('경남') || value.includes('창원') || value.includes('김해')) state.region = value.replace('만 보기', '').trim();
+    else if (/[0-9]{4}/.test(value)) {
+      state.minSalary = parseInt(value.replace(/[^0-9]/g, ''), 10);
+    } else {
+      state.role = value;
+      if (!state.skills.includes(value)) state.skills.push(value);
+    }
+    renderActiveFilters();
+    await updateJobFeed();
+    addBubble(`'${value}' 조건을 반영해 오른쪽 공고 목록을 새로 업데이트했습니다!`, 'bot');
+  }
+}
+
+async function updateJobFeed() {
+  $('result-count').textContent = 'GraphRAG로 맞춤 공고를 탐색 중…';
+
+  try {
+    // 1) 만약 최소 연봉이나 보유 기술 비교가 들어갔다면 /api/recommend + /api/search 결합
+    const hasConditions = Boolean(state.region || state.role || state.skills.length || state.minSalary);
+
+    if (state.skills.length || state.minSalary) {
+      const recBody = {
+        region: state.region,
+        region_mode: state.region ? 'required' : 'ignore',
+        role_category: state.role,
+        role_mode: state.role ? 'preferred' : 'ignore',
+        required_skills: '',
+        preferred_skills: state.skills.join(', '),
+        preferred_benefits: '',
+        candidate_skills: state.skills.join(', '),
+        salary_minimum: state.minSalary,
+        salary_required: Boolean(state.minSalary),
+        employment_type: '',
+        employment_type_required: false,
+        work_mode: '',
+        work_mode_required: false,
+        experience: '',
+        experience_required: false
+      };
+      const r = await fetch('/api/recommend', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(recBody)
+      });
+      const d = await r.json();
+      if (r.ok && d.results && d.results.length > 0) {
+        updateGraphBadge(d);
+        $('feed-heading').textContent = '🎯 챗봇 맞춤 추천 채용공고';
+        currentResultData = d;
+        renderJobCards();
+        return;
+      }
+    }
+
+    // 2) 기본 하이브리드 GraphRAG 검색
+    const queryTerms = [state.role, ...state.skills].filter(Boolean).join(' ');
+    const params = new URLSearchParams({
+      q: queryTerms,
+      region: state.region,
+      mode: 'hybrid'
+    });
+    const r = await fetch('/api/search?' + params);
+    const d = await r.json();
+    updateGraphBadge(d);
+    if (d.summary?.top_skills) topObservedSkills = d.summary.top_skills;
+    $('feed-heading').textContent = hasConditions ? '⚡ GraphRAG 조건 필터링 공고' : '실시간 부울경 전체 채용공고';
+    currentResultData = d;
+    renderJobCards();
+  } catch (err) {
+    $('result-count').textContent = '오류: ' + err.message;
+  }
+}
+
+function updateGraphBadge(d) {
+  const g = d.graph_stats;
+  if (g && $('graph-summary-text')) {
+    $('graph-summary-text').textContent = `GraphRAG 가동 중 · 노드 ${Number(g.node_count||0).toLocaleString()}개 · 관계 ${Number(g.edge_count||0).toLocaleString()}개`;
+  }
+}
+
+function renderJobCards() {
+  if (!currentResultData) return;
+  const all = currentResultData.results || [];
+  const filterTerm = $('result-filter').value.trim().toLocaleLowerCase('ko-KR');
+  const sort = $('result-sort').value;
+
+  const rows = all.filter(p => {
+    if (!filterTerm) return true;
+    const text = [p.title, p.region, p.role_category, ...(p.skills || [])].join(' ').toLocaleLowerCase('ko-KR');
+    return text.includes(filterTerm);
+  });
+
+  if (sort === 'newest') {
+    rows.sort((a,b) => (b.source?.posted_at || '').localeCompare(a.source?.posted_at || ''));
+  }
+
+  $('result-count').textContent = `총 ${rows.length}건의 고용24 부울경 실공고`;
+
+  if (!rows.length) {
+    $('results').innerHTML = `<div class="empty">현재 조건에 정확히 일치하는 공고가 없습니다.<br>챗봇에서 <b>[처음부터]</b>를 누르거나 조건을 조금 완화해 보세요.</div>`;
+    return;
+  }
+
+  $('results').innerHTML = rows.map(p => {
+    const s = p.source || {}, sal = p.salary || {};
+    const salText = sal.status === 'reported' ? (sal.raw || `${sal.minimum || ''}만원`) : (sal.raw || '급여 협의');
+    const url = /^https?:\/\//i.test(s.url || '') ? `<a class="job-link" href="${esc(s.url)}" target="_blank" rel="noopener noreferrer">고용24 상세보기 ↗</a>` : '';
+
+    // 일치 기술 & 미기재 기술 & GraphRAG 연결 태그
+    const pills = [];
     if (p.profile_skill_coverage != null) {
-      const cov = Number(p.profile_skill_coverage);
-      const matchedPills = (p.matched_profile_skills || []).map(sk => `<span class="skill-pill match">✓ 일치: ${esc(sk)}</span>`).join('');
-      const unlistedPills = (p.unlisted_job_skills || []).map(sk => `<span class="skill-pill unlisted">! 이력 미기재(확인): ${esc(sk)}</span>`).join('');
-      profileBlock = `
-        <div class="analysis-box">
-          <div class="analysis-title">
-            <span>📊 내 이력 기술 vs 공고 요구 기술 매칭률</span>
-            <span style="color:var(--brand);font-size:14px">${cov}% 일치</span>
-          </div>
-          <div class="coverage-bar-wrap"><div class="coverage-bar-fill" style="width:${Math.min(100, Math.max(4, cov))}%"></div></div>
-          <div class="skill-diff-row">
-            ${matchedPills || '<span class="meta">일치하는 보유 기술 없음</span>'}
-            ${unlistedPills}
-          </div>
-        </div>`;
+      pills.push(`<span class="pill match">내 이력 기술 매칭 ${esc(p.profile_skill_coverage)}%</span>`);
     }
-
-    // 2) Condition Matching OR GraphRAG Path Block
-    let reasonBlock = '';
-    if (p.conditions) {
-      const condPills = (p.conditions || []).map(c => {
-        const stLabel = {match:'✓ 일치', mismatch:'✕ 불일치', unknown:'? 미확인'}[c.status] || c.status;
-        return `<span class="cond-pill ${esc(c.status)}">${esc(c.condition)}${c.requested ? `(${esc(c.requested)})` : ''}: ${stLabel}</span>`;
-      }).join('');
-      reasonBlock = `
-        <div class="analysis-box">
-          <div class="analysis-title">
-            <span>🎯 희망 조건 판정 결과</span>
-            <span>${p.score == null ? '필수 조건 통과' : `선호 조건 일치도 ${esc(p.score)}점`}</span>
-          </div>
-          <div class="cond-pills">${condPills || '<span class="meta">세부 조건 없음</span>'}</div>
-        </div>`;
-    } else if (p.matched_terms || p.graph_paths) {
-      const gPaths = (p.graph_paths || []).slice(0, 6).map(x => `<span class="graph-path-chip">[공고] <i>──${esc(x.relationship)}──▶</i> ${esc(x.label)}</span>`).join('');
-      reasonBlock = `
-        <div class="analysis-box">
-          <div class="analysis-title">
-            <span>🕸️ GraphRAG 지식 그래프 연결 경로</span>
-            <span>관련도 점수 ${Number(p.score || 0).toFixed(1)} · 채널 ${(p.channels || ['graph']).map(esc).join('+')}</span>
-          </div>
-          <div class="graph-path-chips">${gPaths || '<span class="meta">기본 그래프 노드 연결됨</span>'}</div>
-        </div>`;
+    (p.matched_profile_skills || []).forEach(sk => {
+      pills.push(`<span class="pill match">✓ 보유 일치: ${esc(sk)}</span>`);
+    });
+    (p.unlisted_job_skills || []).forEach(sk => {
+      pills.push(`<span class="pill warn">! 확인 필요: ${esc(sk)}</span>`);
+    });
+    (p.graph_paths || []).slice(0, 4).forEach(gp => {
+      const relMap = {LOCATED_IN:'지역', HAS_ROLE:'직무', REQUIRES_SKILL:'기술', OFFERS_BENEFIT:'복지'};
+      pills.push(`<span class="pill graph">🕸️ Graph [${relMap[gp.relationship]||gp.relationship} → ${esc(gp.label)}]</span>`);
+    });
+    if (!pills.length && (p.skills || []).length) {
+      (p.skills || []).forEach(sk => pills.push(`<span class="pill graph">🛠️ 요구기술: ${esc(sk)}</span>`));
     }
-
-    const chips = (items, empty) => items?.length ? items.map(x => `<span class="chip" style="cursor:default">${esc(x)}</span>`).join(' ') : `<span class="meta">${empty}</span>`;
-    const ev = evidence.length
-      ? `<details><summary>원문 근거(Evidence) ${evidence.length}건 확인하기</summary><div class="evidence-list">${evidence.map(e => `<div class="evidence"><b>${esc(e.field)}${e.locator ? ' · ' + esc(e.locator) : ''}</b><div class="quote">“${esc(e.quote)}”</div></div>`).join('')}</div></details>`
-      : '';
 
     return `
       <article class="job">
-        <div class="job-head">
+        <div class="job-top">
           <div>
             <h3>${esc(p.title)}</h3>
-            <div class="meta">📍 ${esc(p.region)} · 🏢 ${esc(p.role_category)} · 등록일 ${esc(safeDate)} · 마감일 ${esc(p.expires_at || '상시')} · ${esc(status)}</div>
+            <div class="job-meta">
+              <span>📍 ${esc(p.region)}</span>
+              <span>·</span>
+              <span>🏢 ${esc(p.role_category)}</span>
+              <span>·</span>
+              <span>👨‍💼 ${esc(p.experience || '경력무관')}</span>
+              <span>·</span>
+              <span>📅 마감 ${esc(p.expires_at === '2099-12-31' ? '채용시까지' : (p.expires_at || '상시'))}</span>
+            </div>
           </div>
-          <span class="badge real">고용24 실데이터</span>
+          <span class="salary-badge">${esc(salText)}</span>
         </div>
-        ${reasonBlock}
-        ${profileBlock}
-        <div class="details">
-          <div class="detail"><span class="label">급여 조건</span><b>${esc(saltext)}</b></div>
-          <div class="detail"><span class="label">추출 요구 기술</span>${chips(p.skills, '공고 본문 참조')}</div>
-          <div class="detail"><span class="label">복리후생</span>${chips(p.benefits, '공고 본문 참조')}</div>
-          <div class="detail"><span class="label">고용 형태</span>${esc(p.employment_type || '정규직')}</div>
-          <div class="detail"><span class="label">근무 형태</span>${esc(p.work_mode || '주5일')}</div>
-          <div class="detail"><span class="label">경력 요건</span>${esc(p.experience || '경력무관')}</div>
-        </div>
-        ${ev}
-        <div class="source">
-          <span>출처: ${esc(s.name || '고용24')} · 인증번호 ${esc(p.posting_id)}</span>
+        ${pills.length ? `<div class="match-strip"><div class="pill-row">${pills.join('')}</div></div>` : ''}
+        <div class="job-bottom">
+          <span>등록일: ${esc(s.posted_at || '-')} · ${esc(p.employment_type || '정규직')}</span>
           ${url}
         </div>
       </article>`;
   }).join('');
 }
 
-$('result-filter').addEventListener('input', renderResultList);
-$('result-sort').addEventListener('change', renderResultList);
-$('clear-result-filter').addEventListener('click', () => {
-  $('result-filter').value = '';
-  $('result-sort').value = 'relevance';
-  renderResultList();
-});
-
-async function search() {
-  const button = $('search-button');
-  button.disabled = true;
-  $('status').textContent = '고용24 부울경 채용공고 및 GraphRAG 지식 그래프를 불러오는 중…';
-  try {
-    const p = new URLSearchParams({q: $('query').value, region: $('region').value, mode: $('mode').value});
-    const r = await fetch('/api/search?' + p);
-    if (!r.ok) throw new Error((await r.json()).error || '요청 실패');
-    const d = await r.json();
-    drawStats(d);
-    drawResults(d);
-    $('status').textContent = `총 ${d.result_count}건의 부울경 채용공고가 GraphRAG로 탐색되었습니다.`;
-  } catch (e) {
-    $('status').textContent = '오류: ' + e.message;
-    $('results').innerHTML = '<div class="empty">검색 데이터를 불러오지 못했습니다.</div>';
-  } finally {
-    button.disabled = false;
-  }
-}
-
-const CHAT_STEPS = [
-  {key:'skills', question:'보유한 기술·자격증·도구는 무엇인가요? 쉼표로 구분해 주세요. (예: Python, CAD, 품질관리)'},
-  {key:'role', question:'희망하는 직무나 업종 키워드는 무엇인가요? (예: 소프트웨어, 기계, 생산)'},
-  {key:'experience', question:'경력 요약이나 희망 경력 조건을 알려주세요. (예: 신입, 관계없음)'},
-  {key:'region', question:'희망 근무 지역은 어디인가요? (예: 부산, 울산, 경남, 창원)'}
-];
-let chatStep = 0;
-let profileSkills = [];
-
-function addChatMessage(text, who) {
-  const bubble = document.createElement('div');
-  bubble.className = `chat-bubble ${who}`;
-  bubble.textContent = text;
-  $('chat-messages').appendChild(bubble);
-  $('chat-messages').scrollTop = $('chat-messages').scrollHeight;
-}
-
-function startChat() {
-  chatStep = 0;
+function resetChat() {
+  state.region = '';
+  state.role = '';
+  state.skills = [];
+  state.minSalary = null;
+  stepIndex = 0;
   $('chat-messages').replaceChildren();
-  addChatMessage('안녕하세요! 4가지 질문에 답해주시면 좌측 이력란과 희망 조건란을 자동으로 채워드립니다.', 'bot');
-  addChatMessage(CHAT_STEPS[0].question, 'bot');
+  renderActiveFilters();
+  addBubble(STEPS[0].question, 'bot');
+  renderQuickChips();
+  updateJobFeed();
 }
 
-function handleChatReply(value) {
-  const step = CHAT_STEPS[chatStep];
-  addChatMessage(value, 'user');
-  if (step.key === 'skills') {
-    profileSkills = value.split(',').map(x => x.trim()).filter(Boolean);
-    $('profile-skills').value = profileSkills.join(', ');
-  }
-  if (step.key === 'role') $('rec-role').value = value;
-  if (step.key === 'experience') $('profile-experience').value = value;
-  if (step.key === 'region') $('rec-region').value = value;
-  chatStep++;
-  if (chatStep < CHAT_STEPS.length) {
-    addChatMessage(CHAT_STEPS[chatStep].question, 'bot');
-  } else {
-    addChatMessage('입력이 완료되었습니다! 아래 [🎯 내 이력 & 조건으로 맞춤 공고 매칭 실행] 버튼을 눌러 결과를 확인하세요.', 'bot');
-    $('chat-reply').disabled = true;
-    $('chat-form').querySelector('button').disabled = true;
-  }
-}
-
-$('profile-mode').addEventListener('change', () => {
-  document.querySelectorAll('.profile-mode').forEach(x => x.hidden = true);
-  $(`profile-${$('profile-mode').value}`).hidden = false;
+$('chat-form').addEventListener('submit', e => {
+  e.preventDefault();
+  const val = $('chat-input').value;
+  if (!val.trim()) return;
+  $('chat-input').value = '';
+  handleUserInput(val);
 });
 
-$('chat-form').addEventListener('submit', event => {
-  event.preventDefault();
-  const input = $('chat-reply'), value = input.value.trim();
-  if (!value || chatStep >= CHAT_STEPS.length) return;
-  input.value = '';
-  handleChatReply(value);
-});
+$('reset-btn').addEventListener('click', resetChat);
+$('result-filter').addEventListener('input', renderJobCards);
+$('result-sort').addEventListener('change', renderJobCards);
 
-$('chat-restart').addEventListener('click', () => {
-  $('chat-reply').disabled = false;
-  $('chat-form').querySelector('button').disabled = false;
-  startChat();
-});
-
-const PDFJS_SCRIPT = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
-const PDFJS_WORKER = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-const MAMMOTH_SCRIPT = 'https://cdn.jsdelivr.net/npm/mammoth@1.9.1/mammoth.browser.min.js';
-const libraryLoads = new Map();
-
-function loadLibrary(url, available) {
-  if (available()) return Promise.resolve();
-  if (!libraryLoads.has(url)) {
-    libraryLoads.set(url, new Promise((resolve, reject) => {
-      const script = document.createElement('script');
-      script.src = url; script.async = true;
-      script.onload = resolve;
-      script.onerror = () => reject(new Error('문서 해석 라이브러리를 불러오지 못했습니다.'));
-      document.head.appendChild(script);
-    }));
-  }
-  return libraryLoads.get(url);
-}
-
-async function extractResumeText(file, extension) {
-  if (extension === 'txt' || extension === 'md' || extension === 'markdown') return file.text();
-  if (extension === 'docx') {
-    await loadLibrary(MAMMOTH_SCRIPT, () => Boolean(window.mammoth));
-    const result = await window.mammoth.extractRawText({arrayBuffer: await file.arrayBuffer()});
-    return result.value;
-  }
-  if (extension === 'pdf') {
-    await loadLibrary(PDFJS_SCRIPT, () => Boolean(window.pdfjsLib));
-    window.pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS_WORKER;
-    const pdf = await window.pdfjsLib.getDocument({data: new Uint8Array(await file.arrayBuffer())}).promise;
-    const pages = [];
-    for (let i = 1; i <= Math.min(pdf.numPages, 50); i++) {
-      const page = await pdf.getPage(i), content = await page.getTextContent();
-      pages.push(content.items.map(item => item.str || '').join(' '));
-    }
-    return pages.join('\n');
-  }
-  throw new Error('지원 형식: TXT, MD, PDF, DOCX');
-}
-
+// 이력서 파일 업로드로 기술 추출 후 즉시 챗봇에 전달
 const RESUME_SKILLS = [
   'Python','PyTorch','TensorFlow','SQL','JavaScript','TypeScript','Java','C++','C#','React','Vue',
-  'Node.js','Docker','Kubernetes','Linux','AWS','Azure','GCP','ROS2','PLC','Git','FastAPI','Django',
-  'Spring','엑셀','Excel','데이터 분석','AI','머신러닝','딥러닝','CAD','AutoCAD','SolidWorks','CATIA',
-  'CNC','MCT','품질관리','생산관리','안전관리','용접','지게차','전기기사','산업안전기사','회계','ERP'
+  'Node.js','Docker','Kubernetes','Linux','AWS','CAD','AutoCAD','SolidWorks','CATIA',
+  'PLC','CNC','MCT','품질관리','생산관리','안전관리','용접','지게차','전기기사','산업안전기사','회계','ERP','엑셀'
 ];
 
-$('resume-file').addEventListener('change', async event => {
-  const file = event.target.files[0];
+$('resume-file').addEventListener('change', async e => {
+  const file = e.target.files[0];
   if (!file) return;
-  const extension = (file.name.split('.').pop() || '').toLocaleLowerCase('en');
+  $('resume-status').textContent = '분석 중…';
   try {
-    $('resume-status').textContent = '브라우저에서 이력서 텍스트를 분석 중입니다…';
-    const text = await extractResumeText(file, extension);
+    const text = await file.text();
     const lower = text.toLocaleLowerCase('ko-KR');
-    profileSkills = [...new Set(RESUME_SKILLS.filter(skill => lower.includes(skill.toLocaleLowerCase('ko-KR'))))];
-    $('profile-skills').value = profileSkills.join(', ');
-    $('resume-status').textContent = profileSkills.length
-      ? `추출된 기술 ${profileSkills.length}개: ${profileSkills.join(', ')} (직접 입력 탭에 반영됨)`
-      : '사전 정의된 기술 키워드를 찾지 못했습니다. 직접 입력 탭에서 추가해 주세요.';
-  } catch (error) {
-    $('resume-status').textContent = `파일 처리 오류: ${error.message}`;
+    const found = RESUME_SKILLS.filter(sk => lower.includes(sk.toLocaleLowerCase('ko-KR')));
+    if (found.length) {
+      state.skills = [...new Set([...state.skills, ...found])];
+      addBubble(`📎 이력서 파일에서 [${found.join(', ')}] 기술을 추출해 조건에 반영했습니다!`, 'bot');
+      renderActiveFilters();
+      await updateJobFeed();
+    } else {
+      addBubble('파일에서 기술 키워드를 찾지 못했습니다. 채팅창에 직접 기술을 입력해 주세요.', 'bot');
+    }
+    $('resume-status').textContent = '';
+  } catch (err) {
+    $('resume-status').textContent = '읽기 실패';
   }
 });
 
-startChat();
-
-async function recommendJobs() {
-  const button = $('recommend-button');
-  button.disabled = true;
-  $('recommend-status').textContent = '내 이력 기술 및 희망 조건과 부울경 공고를 정밀 대조 중…';
-
-  // If user didn't type any condition or skill at all, use current search region or default to Busan/Ulsan/Gyeongnam preferred so it doesn't abstain empty
-  let candSkills = $('profile-skills').value.trim();
-  let recRegion = $('rec-region').value.trim() || $('region').value.trim();
-  let recRole = $('rec-role').value.trim() || $('query').value.trim();
-  if (!candSkills && !recRegion && !recRole && !$('rec-required-skills').value.trim() && !$('rec-preferred-skills').value.trim() && !$('rec-salary').value) {
-    recRegion = '부산';
-    $('rec-region').value = '부산';
-    $('rec-region-mode').value = 'preferred';
-  }
-
-  const body = {
-    region: recRegion,
-    region_mode: $('rec-region-mode').value,
-    role_category: recRole,
-    role_mode: $('rec-role-mode').value,
-    required_skills: $('rec-required-skills').value,
-    preferred_skills: $('rec-preferred-skills').value,
-    preferred_benefits: $('rec-benefits').value,
-    candidate_skills: candSkills,
-    salary_minimum: $('rec-salary').value || null,
-    salary_required: $('rec-salary-required').checked,
-    employment_type: $('rec-employment').value,
-    employment_type_required: $('rec-employment-required').checked,
-    work_mode: $('rec-work-mode').value,
-    work_mode_required: $('rec-work-mode-required').checked,
-    experience: $('rec-experience').value,
-    experience_required: $('rec-experience-required').checked
-  };
-
-  try {
-    const r = await fetch('/api/recommend', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify(body)
-    });
-    const d = await r.json();
-    if (!r.ok) throw new Error(d.error || '매칭 요청 실패');
-    drawResults(d);
-    $('recommend-status').textContent = `매칭 완료: 조건을 통과한 맞춤 공고 ${d.result_count}건을 찾았습니다.`;
-    $('results-section').scrollIntoView({behavior: 'smooth', block: 'start'});
-  } catch (e) {
-    $('recommend-status').textContent = '오류: ' + e.message;
-  } finally {
-    button.disabled = false;
-  }
-}
-
-async function syncWork24() {
-  const btn = $('sync-work24-button');
-  if (!btn) return;
+// 고용24 추가 수집 버튼
+$('sync-btn').addEventListener('click', async () => {
+  const btn = $('sync-btn');
   btn.disabled = true;
-  const origText = btn.textContent;
-  btn.textContent = '⏳ 고용24에서 부울경 공고 300건 수집 중…';
-  $('status').textContent = '고용24 OpenAPI에서 부산(100)·울산(100)·경남(100) 다음 페이지 공고를 가져와 DB에 누적 적재하고 있습니다…';
+  const orig = btn.textContent;
+  btn.textContent = '⏳ 수집 중…';
   try {
     const r = await fetch('/api/sync', {method: 'POST'});
     const d = await r.json();
-    if (!r.ok) throw new Error(d.error || '동기화 실패');
-    $('status').textContent = `고용24 추가 수집 완료! (${d.page_fetched || 1}페이지 수집 · 현재 DB 총 ${d.total_in_db || d.synced_count}건 적재됨)`;
-    await search();
-  } catch (e) {
-    $('status').textContent = '동기화 오류: ' + e.message;
+    addBubble(`고용24에서 부울경 공고를 추가 수집했습니다! (현재 총 ${d.total_in_db || d.synced_count}건)`, 'bot');
+    await updateJobFeed();
   } finally {
     btn.disabled = false;
-    btn.textContent = origText;
+    btn.textContent = orig;
   }
-}
+});
 
-if ($('sync-work24-button')) $('sync-work24-button').addEventListener('click', syncWork24);
-$('search-form').addEventListener('submit', e => { e.preventDefault(); search(); });
-$('recommend-form').addEventListener('submit', e => { e.preventDefault(); recommendJobs(); });
-search();
+// 초기 시작
+resetChat();
 </script>
 </body>
 </html>
