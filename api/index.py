@@ -10,7 +10,6 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 
-# Vercel sends requests to /api/index.py or strips prefix; docs_url enabled for inspection
 app = FastAPI(title="Job Mismatch Analyzer API", version="1.0.0")
 
 app.add_middleware(
@@ -56,16 +55,8 @@ def _get_active_postings_from_db(db: Session):
     return []
 
 
-# Bind both root and sub-paths to guarantee matching regardless of Vercel path rewrites
-@app.get("/", response_class=HTMLResponse)
-@app.get("/api", response_class=HTMLResponse)
-@app.get("/api/index.py", response_class=HTMLResponse)
-def index_page():
-    return HTMLResponse(content=_read_index_html())
-
-
-@app.get("/health")
-@app.get("/api/health")
+@app.api_route("/health", methods=["GET", "POST"])
+@app.api_route("/api/health", methods=["GET", "POST"])
 def health_check():
     db_status = "unknown"
     job_count = 0
@@ -89,8 +80,8 @@ def health_check():
     }
 
 
-@app.get("/search")
-@app.get("/api/search")
+@app.api_route("/search", methods=["GET", "POST"])
+@app.api_route("/api/search", methods=["GET", "POST"])
 def search_jobs(
     q: str = Query("", description="Search keyword"),
     region: str = Query("", description="Region filter"),
@@ -146,3 +137,11 @@ def trigger_sync(secret: str = Query("", description="Sync protection secret")):
     from src.ingestion.sync_work24 import sync_from_work24
     synced = sync_from_work24(api_key=api_key, pages=1, display=20)
     return {"status": "success", "synced_count": synced}
+
+
+# Catch-all route: Any other route returns index.html or debug info
+@app.api_route("/{full_path:path}", methods=["GET", "POST"])
+def catch_all(request: Request, full_path: str):
+    if "api" in full_path or "health" in full_path:
+        return {"path_received": full_path, "url": str(request.url), "message": "API endpoint reached via catch_all"}
+    return HTMLResponse(content=_read_index_html())
