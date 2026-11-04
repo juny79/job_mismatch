@@ -1,4 +1,4 @@
-"""CLI script to sync jobs from Work24 API or demo JSONL into the database."""
+"""CLI script and service function to sync jobs from Work24 API or demo JSONL into the database."""
 
 from __future__ import annotations
 
@@ -10,37 +10,55 @@ from src.ingestion.jsonl import load_jsonl
 from src.ingestion.work24_adapter import work24_to_job_posting
 from src.ingestion.work24_client import Work24Client, Work24ApiError
 
+# Work24 Standard Administrative Region Codes for Bu-Ul-Gyeong (부산, 울산, 경남)
+BU_UL_GYEONG_REGIONS = {
+    "부산": "26000",
+    "울산": "31000",
+    "경남": "48000",
+}
 
-def sync_from_work24(api_key: str, pages: int = 1, display: int = 20, region_filter: str | None = None) -> int:
-    client = Work24Client(api_key=api_key)
+
+def sync_from_work24(
+    api_key: str,
+    pages: int = 1,
+    display: int = 20,
+    region_filter: str | None = None,
+) -> dict[str, int | list[str]]:
+    """Fetch jobs from Work24 API (defaults to Busan, Ulsan, Gyeongnam) and save to DB."""
+    init_db()
+    client = Work24Client(api_key=api_key, timeout=15.0)
     session = SessionLocal()
     total_saved = 0
+    errors: list[str] = []
 
-    filters = {}
+    # If no specific region_filter is passed, iterate over Bu-Ul-Gyeong regions
     if region_filter:
-        filters["region"] = region_filter
+        region_targets = [(region_filter, region_filter)]
+    else:
+        region_targets = list(BU_UL_GYEONG_REGIONS.items())
 
-    print(f"Fetching from Work24 API (pages: {pages}, display: {display})...")
     try:
-        for page in range(1, pages + 1):
-            res = client.list_jobs(start_page=page, display=display, filters=filters if filters else None)
-            for raw_job in res.jobs:
-                posting = work24_to_job_posting(raw_job)
-                record = JobPostingRecord.from_domain(posting)
-                session.merge(record)
-                total_saved += 1
-            session.commit()
-            print(f"  Page {page}/{pages} synced ({len(res.jobs)} jobs).")
-    except Work24ApiError as err:
-        print(f"Work24 API error: {err}", file=sys.stderr)
+        for label, code in region_targets:
+            filters = {"region": code} if code else None
+            for page in range(1, pages + 1):
+                try:
+                    res = client.list_jobs(start_page=page, display=display, filters=filters)
+                    for raw_job in res.jobs:
+                        posting = work24_to_job_posting(raw_job)
+                        record = JobPostingRecord.from_domain(posting)
+                        session.merge(record)
+                        total_saved += 1
+                    session.commit()
+                except Work24ApiError as err:
+                    errors.append(f"{label}(p{page}): {err}")
     finally:
         session.close()
 
-    print(f"Total Work24 jobs synced to DB: {total_saved}")
-    return total_saved
+    return {"saved": total_saved, "errors": errors}
 
 
 def sync_from_jsonl(jsonl_path: str) -> int:
+    init_db()
     session = SessionLocal()
     postings, rejected = load_jsonl(jsonl_path, allow_synthetic=True)
     count = 0
@@ -58,9 +76,9 @@ def main():
     parser = argparse.ArgumentParser(description="Sync job postings to database.")
     parser.add_argument("--jsonl", help="Path to jsonl file to import into DB (e.g. data/demo_jobs.jsonl)")
     parser.add_argument("--work24", action="store_true", help="Fetch from Work24 API using WORK24_API_KEY environment variable")
-    parser.add_argument("--pages", type=int, default=1, help="Number of pages to fetch from Work24 (default: 1)")
+    parser.add_argument("--pages", type=int, default=1, help="Number of pages to fetch per region from Work24 (default: 1)")
     parser.add_argument("--display", type=int, default=20, help="Items per page (default: 20)")
-    parser.add_argument("--region", type=str, default="", help="Work24 region code or keyword")
+    parser.add_argument("--region", type=str, default="", help="Work24 region code (e.g. 26000 for Busan, 31000 for Ulsan, 48000 for Gyeongnam)")
 
     args = parser.parse_args()
     init_db()
@@ -73,9 +91,9 @@ def main():
         if not api_key:
             print("Error: WORK24_API_KEY environment variable is not set.", file=sys.stderr)
             sys.exit(1)
-        sync_from_work24(api_key, pages=args.pages, display=args.display, region_filter=args.region or None)
+        result = sync_from_work24(api_key, pages=args.pages, display=args.display, region_filter=args.region or None)
+        print(f"Sync result: {result}")
     else:
-        # Default fallback: import demo data
         sync_from_jsonl("data/demo_jobs.jsonl")
 
 

@@ -58,6 +58,16 @@ class JobPostingRecord(Base):
             maximum=self.salary_max,
             unit=self.salary_unit,
         )
+
+        # Infer work_mode or review_status from evidence metadata if present, otherwise default to approved for synced records
+        work_mode = next((e.quote for e in evidence if e.field == "work_mode"), "")
+        review_meta = next((e.quote for e in evidence if e.field == "_meta_review_status"), "")
+        review_status = review_meta if review_meta in {"approved", "pending", "rejected"} else "approved"
+        is_synthetic = (self.source_id == "DEMO-SYNTHETIC") or bool(
+            next((e.quote for e in evidence if e.field == "_meta_synthetic" and e.quote == "true"), "")
+        )
+        visible_evidence = tuple(e for e in evidence if not e.field.startswith("_meta_"))
+
         return JobPosting(
             posting_id=self.posting_id,
             source_id=self.source_id,
@@ -72,19 +82,27 @@ class JobPostingRecord(Base):
             role_raw=self.role_category,
             experience=self.experience or "",
             employment_type=self.employment_type or "",
+            work_mode=work_mode,
             recruitment_status=self.recruitment_status or "active",
             raw_text=self.raw_text or "",
             salary=salary,
             required_skills=skills,
             benefits=benefits,
-            evidence=evidence,
+            evidence=visible_evidence,
             posted_at=self.posted_at or "",
             expires_at=self.expires_at or "",
+            updated_at=self.posted_at or "",
             collected_at=self.collected_at or "",
+            review_status=review_status,
+            synthetic=is_synthetic,
         )
 
     @classmethod
     def from_domain(cls, posting: JobPosting) -> "JobPostingRecord":
+        ev_list = [{"field": e.field, "quote": e.quote, "locator": e.locator} for e in posting.evidence]
+        ev_list.append({"field": "_meta_review_status", "quote": posting.review_status or "approved", "locator": "system"})
+        ev_list.append({"field": "_meta_synthetic", "quote": "true" if posting.synthetic else "false", "locator": "system"})
+
         return cls(
             posting_id=posting.posting_id,
             source_id=posting.source_id,
@@ -106,10 +124,7 @@ class JobPostingRecord(Base):
             salary_unit=posting.salary.unit,
             required_skills_json=json.dumps(list(posting.required_skills), ensure_ascii=False),
             benefits_json=json.dumps(list(posting.benefits), ensure_ascii=False),
-            evidence_json=json.dumps(
-                [{"field": e.field, "quote": e.quote, "locator": e.locator} for e in posting.evidence],
-                ensure_ascii=False,
-            ),
+            evidence_json=json.dumps(ev_list, ensure_ascii=False),
             raw_text=posting.raw_text,
             posted_at=posting.posted_at,
             expires_at=posting.expires_at,

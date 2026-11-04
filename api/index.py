@@ -123,8 +123,8 @@ async def recommend_jobs(request: Request):
         db.close()
 
 
-@app.post("/sync")
-@app.post("/api/sync")
+@app.api_route("/sync", methods=["GET", "POST"])
+@app.api_route("/api/sync", methods=["GET", "POST"])
 def trigger_sync(secret: str = Query("", description="Sync protection secret")):
     expected_secret = os.environ.get("SYNC_SECRET", "")
     if expected_secret and secret != expected_secret:
@@ -132,11 +132,15 @@ def trigger_sync(secret: str = Query("", description="Sync protection secret")):
 
     api_key = os.environ.get("WORK24_API_KEY", "").strip()
     if not api_key:
-        return JSONResponse(status_code=400, content={"error": "WORK24_API_KEY not configured"})
+        return JSONResponse(status_code=400, content={"error": "WORK24_API_KEY 환경 변수가 설정되지 않았습니다."})
 
     from src.ingestion.sync_work24 import sync_from_work24
-    synced = sync_from_work24(api_key=api_key, pages=1, display=20)
-    return {"status": "success", "synced_count": synced}
+    result = sync_from_work24(api_key=api_key, pages=1, display=25)
+    return {
+        "status": "success",
+        "synced_count": result.get("saved", 0),
+        "errors": result.get("errors", []),
+    }
 
 
 # Catch-all route: Any other route returns index.html or debug info
