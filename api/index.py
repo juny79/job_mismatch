@@ -3,14 +3,14 @@
 from __future__ import annotations
 
 import os
-import traceback
 from pathlib import Path
 from typing import Any
-from fastapi import FastAPI, Depends, Query, Request
+from fastapi import FastAPI, Query, Request
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 
+# Vercel sends requests to /api/index.py or strips prefix; docs_url enabled for inspection
 app = FastAPI(title="Job Mismatch Analyzer API", version="1.0.0")
 
 app.add_middleware(
@@ -24,13 +24,14 @@ app.add_middleware(
 TEMPLATES_DIR = Path(__file__).resolve().parent.parent / "src" / "app" / "templates"
 
 
-@app.on_event("startup")
-def on_startup():
-    try:
-        from src.db.database import init_db
-        init_db()
-    except Exception as e:
-        print(f"Startup DB init warning: {e}")
+def _read_index_html() -> str:
+    html_file = TEMPLATES_DIR / "index.html"
+    if html_file.exists():
+        return html_file.read_text(encoding="utf-8")
+    pub_file = Path(__file__).resolve().parent.parent / "public" / "index.html"
+    if pub_file.exists():
+        return pub_file.read_text(encoding="utf-8")
+    return "<h1>Job Mismatch Analyzer API</h1>"
 
 
 def _get_active_postings_from_db(db: Session):
@@ -55,14 +56,15 @@ def _get_active_postings_from_db(db: Session):
     return []
 
 
+# Bind both root and sub-paths to guarantee matching regardless of Vercel path rewrites
 @app.get("/", response_class=HTMLResponse)
+@app.get("/api", response_class=HTMLResponse)
+@app.get("/api/index.py", response_class=HTMLResponse)
 def index_page():
-    html_file = TEMPLATES_DIR / "index.html"
-    if html_file.exists():
-        return HTMLResponse(content=html_file.read_text(encoding="utf-8"))
-    return HTMLResponse("<h1>Job Mismatch Analyzer API</h1>")
+    return HTMLResponse(content=_read_index_html())
 
 
+@app.get("/health")
 @app.get("/api/health")
 def health_check():
     db_status = "unknown"
@@ -87,6 +89,7 @@ def health_check():
     }
 
 
+@app.get("/search")
 @app.get("/api/search")
 def search_jobs(
     q: str = Query("", description="Search keyword"),
@@ -111,6 +114,7 @@ def search_jobs(
         db.close()
 
 
+@app.post("/recommend")
 @app.post("/api/recommend")
 async def recommend_jobs(request: Request):
     from src.db.database import SessionLocal
@@ -128,6 +132,7 @@ async def recommend_jobs(request: Request):
         db.close()
 
 
+@app.post("/sync")
 @app.post("/api/sync")
 def trigger_sync(secret: str = Query("", description="Sync protection secret")):
     expected_secret = os.environ.get("SYNC_SECRET", "")
