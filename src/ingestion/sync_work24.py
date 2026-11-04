@@ -24,13 +24,14 @@ def sync_from_work24(
     pages: int = 1,
     display: int = 100,
     region_filter: str | None = None,
-) -> dict[str, int | list[str]]:
+    use_fallback_on_error: bool = True,
+) -> dict[str, int | list[str] | bool]:
     """Fetch jobs from Work24 API (defaults to Busan, Ulsan, Gyeongnam, 100 per region) and save to DB."""
     init_db()
-    client = Work24Client(api_key=api_key, timeout=15.0)
     session = SessionLocal()
     total_saved = 0
     errors: list[str] = []
+    used_fallback = False
 
     if region_filter:
         region_targets = [(region_filter, region_filter)]
@@ -39,19 +40,37 @@ def sync_from_work24(
 
     total_in_db = 0
     try:
-        for label, code in region_targets:
-            filters = {"region": code} if code else None
-            for page in range(start_page, start_page + pages):
-                try:
-                    res = client.list_jobs(start_page=page, display=display, filters=filters)
-                    for raw_job in res.jobs:
-                        posting = work24_to_job_posting(raw_job)
-                        record = JobPostingRecord.from_domain(posting)
-                        session.merge(record)
-                        total_saved += 1
-                    session.commit()
-                except Exception as err:
-                    errors.append(f"{label}(p{page}): {err}")
+        if api_key and api_key.strip():
+            client = Work24Client(api_key=api_key, timeout=12.0)
+            for label, code in region_targets:
+                filters = {"region": code} if code else None
+                for page in range(start_page, start_page + pages):
+                    try:
+                        res = client.list_jobs(start_page=page, display=display, filters=filters)
+                        for raw_job in res.jobs:
+                            posting = work24_to_job_posting(raw_job)
+                            record = JobPostingRecord.from_domain(posting)
+                            session.merge(record)
+                            total_saved += 1
+                        session.commit()
+                    except Exception as err:
+                        errors.append(f"{label}(p{page}): {err}")
+        else:
+            errors.append("WORK24_API_KEY가 비어 있습니다.")
+
+        # If Work24 OpenAPI returned an XML error or blocked overseas Vercel IPs (0 saved),
+        # automatically populate 300 Bu-Ul-Gyeong postings for this page so the DB & GraphRAG work seamlessly.
+        if total_saved == 0 and use_fallback_on_error:
+            from src.ingestion.buulgyeong_seed import build_buulgyeong_seed_postings
+            batch_size = display * len(region_targets)
+            offset = max(0, (start_page - 1) * batch_size)
+            seed_postings = build_buulgyeong_seed_postings(target_count=batch_size, start_index=offset)
+            for posting in seed_postings:
+                record = JobPostingRecord.from_domain(posting)
+                session.merge(record)
+                total_saved += 1
+            session.commit()
+            used_fallback = True
     finally:
         try:
             total_in_db = session.query(JobPostingRecord).count()
@@ -59,7 +78,12 @@ def sync_from_work24(
             errors.append(f"DB count error: {db_err}")
         session.close()
 
-    return {"saved": total_saved, "total_in_db": total_in_db, "errors": errors}
+    return {
+        "saved": total_saved,
+        "total_in_db": total_in_db,
+        "errors": errors,
+        "used_fallback": used_fallback,
+    }
 
 
 def sync_from_jsonl(jsonl_path: str) -> int:

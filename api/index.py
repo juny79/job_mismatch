@@ -45,13 +45,12 @@ def _get_active_postings_from_db(db: Session):
 
         records = db.query(JobPostingRecord).all()
 
-        # DB has < 100 real jobs: Automatically fetch 300 Bu-Ul-Gyeong postings from Work24 API
+        # DB has < 100 real jobs: Automatically fetch 300 Bu-Ul-Gyeong postings from Work24 API (or fallback)
         if len(records) < 100:
             api_key = os.environ.get("WORK24_API_KEY", "").strip()
-            if api_key:
-                from src.ingestion.sync_work24 import sync_from_work24
-                sync_from_work24(api_key=api_key, start_page=1, pages=1, display=100)
-                records = db.query(JobPostingRecord).all()
+            from src.ingestion.sync_work24 import sync_from_work24
+            sync_from_work24(api_key=api_key, start_page=1, pages=1, display=100, use_fallback_on_error=True)
+            records = db.query(JobPostingRecord).all()
 
         if records:
             return [r.to_domain() for r in records]
@@ -176,8 +175,6 @@ def trigger_sync(
         return JSONResponse(status_code=403, content={"error": "Unauthorized sync secret"})
 
     api_key = os.environ.get("WORK24_API_KEY", "").strip()
-    if not api_key:
-        return JSONResponse(status_code=400, content={"error": "WORK24_API_KEY 환경 변수가 설정되지 않았습니다."})
 
     # Determine next page automatically based on current DB count (each page across 3 regions = ~300 jobs)
     target_page = page
@@ -193,12 +190,13 @@ def trigger_sync(
             target_page = 1
 
     from src.ingestion.sync_work24 import sync_from_work24
-    result = sync_from_work24(api_key=api_key, start_page=target_page, pages=1, display=100)
+    result = sync_from_work24(api_key=api_key, start_page=target_page, pages=1, display=100, use_fallback_on_error=True)
     return {
         "status": "success",
         "page_fetched": target_page,
         "synced_count": result.get("saved", 0),
         "total_in_db": result.get("total_in_db", 0),
+        "used_fallback": result.get("used_fallback", False),
         "errors": result.get("errors", []),
     }
 

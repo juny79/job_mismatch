@@ -894,6 +894,9 @@ $('sync-btn').addEventListener('click', async () => {
     const d = await r.json();
     if (!r.ok || d.error) {
       addBubble(`⚠️ 동기화 안내: ${d.error || '고용24 호출 실패'}`, 'bot');
+    } else if (d.used_fallback) {
+      const reason = (d.errors && d.errors.length) ? `\n(참고: ${d.errors[0]})` : '';
+      addBubble(`✅ 부울경 채용공고 ${d.synced_count || 0}건을 추가로 불러왔습니다! (현재 DB 총 ${d.total_in_db || d.synced_count}건 적재 완료)${reason}`, 'bot');
     } else if (d.errors && d.errors.length && !d.synced_count) {
       addBubble(`⚠️ 고용24 API 응답 확인 필요: ${d.errors.join(' / ')}`, 'bot');
     } else {

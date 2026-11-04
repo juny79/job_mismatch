@@ -144,6 +144,11 @@ class Work24Client:
                     return (child.text or "").strip()
             return ""
 
+        error_text = child_text(root, "error") or child_text(root, "message") or child_text(root, "errMsg")
+        message_cd = child_text(root, "messageCd")
+        if error_text or message_cd:
+            raise Work24ApiError(f"Work24 API 응답 메시지 ({message_cd or 'ERROR'}): {error_text}")
+
         total_text = child_text(root, "total")
         start_text = child_text(root, "startPage")
         display_text = child_text(root, "display")
