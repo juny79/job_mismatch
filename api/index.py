@@ -3,20 +3,13 @@
 from __future__ import annotations
 
 import os
+import traceback
 from pathlib import Path
 from typing import Any
 from fastapi import FastAPI, Depends, Query, Request
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
-
-from src.db.database import get_db, init_db
-from src.db.models import JobPostingRecord
-from src.app.web import build_search_payload, build_recommendation_payload
-from src.ingestion.quality import quality_report
-
-# Initialize database tables
-init_db()
 
 app = FastAPI(title="Job Mismatch Analyzer API", version="1.0.0")
 
@@ -31,20 +24,35 @@ app.add_middleware(
 TEMPLATES_DIR = Path(__file__).resolve().parent.parent / "src" / "app" / "templates"
 
 
+@app.on_event("startup")
+def on_startup():
+    try:
+        from src.db.database import init_db
+        init_db()
+    except Exception as e:
+        print(f"Startup DB init warning: {e}")
+
+
 def _get_active_postings_from_db(db: Session):
-    records = db.query(JobPostingRecord).all()
-    if not records:
-        # Fallback to demo JSONL if database is currently empty
+    try:
+        from src.db.models import JobPostingRecord
+        records = db.query(JobPostingRecord).all()
+        if records:
+            return [r.to_domain() for r in records]
+    except Exception as err:
+        print(f"DB query error: {err}")
+
+    # Fallback to demo JSONL
+    try:
         from src.ingestion.jsonl import load_jsonl
         demo_path = Path(__file__).resolve().parent.parent / "data" / "demo_jobs.jsonl"
         if demo_path.exists():
             postings, _ = load_jsonl(demo_path, allow_synthetic=True)
-            for p in postings:
-                rec = JobPostingRecord.from_domain(p)
-                db.merge(rec)
-            db.commit()
             return postings
-    return [r.to_domain() for r in records]
+    except Exception as err:
+        print(f"JSONL fallback error: {err}")
+
+    return []
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -56,12 +64,26 @@ def index_page():
 
 
 @app.get("/api/health")
-def health_check(db: Session = Depends(get_db)):
-    count = db.query(JobPostingRecord).count()
+def health_check():
+    db_status = "unknown"
+    job_count = 0
+    err_msg = None
+    try:
+        from src.db.database import SessionLocal
+        from src.db.models import JobPostingRecord
+        db = SessionLocal()
+        job_count = db.query(JobPostingRecord).count()
+        db_status = "connected"
+        db.close()
+    except Exception as e:
+        db_status = "error"
+        err_msg = str(e)
+
     return {
         "status": "ok",
-        "database": "connected",
-        "job_count": count,
+        "database": db_status,
+        "job_count": job_count,
+        "db_error": err_msg,
     }
 
 
@@ -70,39 +92,44 @@ def search_jobs(
     q: str = Query("", description="Search keyword"),
     region: str = Query("", description="Region filter"),
     mode: str = Query("hybrid", description="lexical, graph, or hybrid"),
-    db: Session = Depends(get_db),
 ):
-    postings = _get_active_postings_from_db(db)
+    from src.db.database import SessionLocal
+    from src.app.web import build_search_payload
 
-    payload = build_search_payload(
-        postings=postings,
-        rejected=[],
-        query=q,
-        region=region,
-        graph=mode,
-    )
-    return payload
+    db = SessionLocal()
+    try:
+        postings = _get_active_postings_from_db(db)
+        payload = build_search_payload(
+            postings=postings,
+            rejected=[],
+            query=q,
+            region=region,
+            graph=mode,
+        )
+        return payload
+    finally:
+        db.close()
 
 
 @app.post("/api/recommend")
-async def recommend_jobs(
-    request: Request,
-    db: Session = Depends(get_db),
-):
+async def recommend_jobs(request: Request):
+    from src.db.database import SessionLocal
+    from src.app.web import build_recommendation_payload
+
+    preferences = await request.json()
+    db = SessionLocal()
     try:
-        preferences = await request.json()
         postings = _get_active_postings_from_db(db)
         payload = build_recommendation_payload(postings, preferences)
         return payload
     except Exception as exc:
         return JSONResponse(status_code=400, content={"error": str(exc)})
+    finally:
+        db.close()
 
 
 @app.post("/api/sync")
-def trigger_sync(
-    secret: str = Query("", description="Sync protection secret"),
-    db: Session = Depends(get_db),
-):
+def trigger_sync(secret: str = Query("", description="Sync protection secret")):
     expected_secret = os.environ.get("SYNC_SECRET", "")
     if expected_secret and secret != expected_secret:
         return JSONResponse(status_code=403, content={"error": "Unauthorized sync secret"})
