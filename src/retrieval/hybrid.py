@@ -90,6 +90,23 @@ def _all_posting_graph_paths(graph: JobGraph) -> dict[str, list[dict[str, object
     return paths_by_posting
 
 
+def _two_hop_shared_counts(graph: JobGraph) -> dict[str, dict[str, int]]:
+    """Compute 2-hop graph neighbor counts (how many other postings share each Role/Skill/Location node)."""
+    target_to_postings: dict[str, set[str]] = {}
+    for edge in graph.edges:
+        if edge.relationship in {"HAS_ROLE", "REQUIRES_SKILL", "LOCATED_IN"}:
+            target_to_postings.setdefault(edge.target_id, set()).add(edge.posting_id)
+
+    shared_by_posting: dict[str, dict[str, int]] = {}
+    for edge in graph.edges:
+        if edge.relationship in {"HAS_ROLE", "REQUIRES_SKILL", "LOCATED_IN"}:
+            peer_count = max(0, len(target_to_postings.get(edge.target_id, set())) - 1)
+            shared_by_posting.setdefault(edge.posting_id, {})[edge.relationship] = (
+                shared_by_posting.get(edge.posting_id, {}).get(edge.relationship, 0) + peer_count
+            )
+    return shared_by_posting
+
+
 def hybrid_search(
     postings: list[JobPosting],
     query: str,
@@ -101,6 +118,8 @@ def hybrid_search(
     terms = _terms(query)
     graph = build_job_graph(postings)
     graph_matches = _graph_matches(graph, terms) if terms else _all_posting_graph_paths(graph)
+    all_paths_map = _all_posting_graph_paths(graph)
+    two_hop_counts = _two_hop_shared_counts(graph)
     hits: list[HybridHit] = []
 
     for posting in postings:
@@ -125,20 +144,28 @@ def hybrid_search(
                 term_fields[term].add(f"graph:{path['relationship']}")
             score += 2.0 * len(path["matched_terms"])
 
+        # Add 2-hop graph centrality bonus (connectedness across shared Role/Skill nodes)
+        peer_stats = two_hop_counts.get(posting.posting_id, {})
+        two_hop_bonus = min(3.0, (peer_stats.get("REQUIRES_SKILL", 0) * 0.02) + (peer_stats.get("HAS_ROLE", 0) * 0.01))
+        score += round(two_hop_bonus, 2)
+
         matched_terms = tuple(term for term in terms if term_fields[term])
         if terms and not matched_terms:
             continue
         if not terms:
-            score = float(len(paths))
+            score = round(float(len(paths)) + two_hop_bonus, 2)
+
+        # Ensure key graph paths (Role, Location, Skills, Benefits) are always included for UI display
+        display_paths = paths if paths else all_paths_map.get(posting.posting_id, [])
         fields = tuple(sorted({field for matches in term_fields.values() for field in matches}))
         channels = tuple(channel for channel, present in (
             ("lexical", any(not field.startswith("graph:") for field in fields)),
-            ("graph", bool(paths)),
+            ("graph", bool(display_paths)),
         ) if present)
         relevant_evidence = (
             tuple(
                 item for item in posting.evidence
-                if item.field in fields or any(item.field in _path_evidence_fields(path["relationship"]) for path in paths)
+                if item.field in fields or any(item.field in _path_evidence_fields(path["relationship"]) for path in display_paths)
             )
             if terms else posting.evidence
         )
@@ -148,7 +175,7 @@ def hybrid_search(
             matched_terms=matched_terms,
             matched_fields=fields,
             channels=channels,
-            graph_paths=tuple(paths),
+            graph_paths=tuple(display_paths),
             evidence=relevant_evidence,
         ))
 

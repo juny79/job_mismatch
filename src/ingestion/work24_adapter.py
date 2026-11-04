@@ -59,17 +59,16 @@ def _parse_salary(sal_type_nm: str, sal_text: str, min_sal_text: str, max_sal_te
 
 def _extract_skills_from_text(text: str) -> tuple[str, ...]:
     common_skills = [
+        "정보처리기사", "정보처리산업기사", "빅데이터분석기사", "SQLD", "ADsP",
         "Python", "PyTorch", "TensorFlow", "SQL", "JavaScript", "TypeScript",
         "Java", "C++", "C#", "React", "Vue", "Node.js", "Spring", "Django",
         "FastAPI", "MySQL", "PostgreSQL", "Docker", "Kubernetes", "Linux",
         "AWS", "Azure", "GCP", "ROS2", "Git", "엑셀", "Excel", "데이터 분석",
         "AI", "머신러닝", "딥러닝", "CAD", "AutoCAD", "SolidWorks", "CATIA",
         "PLC", "CNC", "MCT", "품질관리", "생산관리", "안전관리", "용접", "지게차",
-        "전기기사", "산업안전기사", "회계", "ERP",
-        "생산", "제조", "가공", "조립", "설비", "기계", "전기", "전자", "공무",
-        "물류", "자재", "구매", "영업", "사무", "경리", "총무", "인사", "회계",
-        "운전", "배송", "납품", "포장", "검사", "품질", "연구", "개발", "설계",
-        "간호", "요양", "조리", "상담", "고객", "마케팅", "디자인", "시공", "건축", "토목"
+        "전기기사", "전기산업기사", "산업안전기사", "기계설계산업기사", "품질경영기사",
+        "전산세무", "전산회계", "컴퓨터활용능력", "회계", "ERP", "인사", "총무",
+        "자재관리", "물류관리",
     ]
     found = []
     text_lower = text.lower()
@@ -141,7 +140,7 @@ def work24_to_job_posting(item: dict[str, str], collected_at: str | None = None)
     elif "경남" in region_raw or "경상남도" in basic_addr or "창원" in region_raw or "김해" in region_raw or "양산" in region_raw or "거제" in region_raw or "진주" in region_raw:
         region = f"경남 {region_raw}" if region_raw and "경남" not in region_raw and "경상남도" not in region_raw else (region_raw or "경남")
 
-    role_category = f"{ind_tp} ({title})" if ind_tp else (title or jobs_cd or "일반/제조/IT")
+    role_category = ind_tp if ind_tp else (jobs_cd or title or "일반/제조/IT")
     work_mode = holiday_tp or "주5일(상근)"
 
     salary = _parse_salary(

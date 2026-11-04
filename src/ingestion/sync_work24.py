@@ -59,11 +59,11 @@ def sync_from_work24(
             errors.append("WORK24_API_KEY가 비어 있습니다.")
 
         # If Work24 OpenAPI returned an XML error or blocked overseas Vercel IPs (0 saved),
-        # automatically populate 300 Bu-Ul-Gyeong postings for this page so the DB & GraphRAG work seamlessly.
+        # automatically populate Bu-Ul-Gyeong postings for the requested pages so the DB & GraphRAG work seamlessly.
         if total_saved == 0 and use_fallback_on_error:
             from src.ingestion.buulgyeong_seed import build_buulgyeong_seed_postings
-            batch_size = display * len(region_targets)
-            offset = max(0, (start_page - 1) * batch_size)
+            batch_size = display * len(region_targets) * max(1, pages)
+            offset = max(0, (start_page - 1) * (display * len(region_targets)))
             seed_postings = build_buulgyeong_seed_postings(target_count=batch_size, start_index=offset)
             for posting in seed_postings:
                 record = JobPostingRecord.from_domain(posting)

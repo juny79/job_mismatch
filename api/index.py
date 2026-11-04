@@ -45,11 +45,21 @@ def _get_active_postings_from_db(db: Session):
 
         records = db.query(JobPostingRecord).all()
 
+        # Migrate/clean any older records that had >8 noisy generic skills or title-duplicated role_category
+        needs_reseed = any(
+            len(r.to_domain().required_skills) > 8 or "(" in (r.role_category or "")
+            for r in records[:20]
+        )
+        if needs_reseed:
+            db.query(JobPostingRecord).delete()
+            db.commit()
+            records = []
+
         # DB has < 100 real jobs: Automatically fetch 300 Bu-Ul-Gyeong postings from Work24 API (or fallback)
         if len(records) < 100:
             api_key = os.environ.get("WORK24_API_KEY", "").strip()
             from src.ingestion.sync_work24 import sync_from_work24
-            sync_from_work24(api_key=api_key, start_page=1, pages=1, display=100, use_fallback_on_error=True)
+            sync_from_work24(api_key=api_key, start_page=1, pages=2, display=100, use_fallback_on_error=True)
             records = db.query(JobPostingRecord).all()
 
         if records:
