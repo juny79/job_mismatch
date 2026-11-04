@@ -43,18 +43,16 @@ def _get_active_postings_from_db(db: Session):
         db.query(JobPostingRecord).filter(JobPostingRecord.source_id == "DEMO-SYNTHETIC").delete()
         db.commit()
 
-        records = db.query(JobPostingRecord).all()
+        # DB has < 100 real jobs: Automatically fetch 300 Bu-Ul-Gyeong postings from Work24 API
+        if len(records) < 100:
+            api_key = os.environ.get("WORK24_API_KEY", "").strip()
+            if api_key:
+                from src.ingestion.sync_work24 import sync_from_work24
+                sync_from_work24(api_key=api_key, start_page=1, pages=1, display=100)
+                records = db.query(JobPostingRecord).all()
+
         if records:
             return [r.to_domain() for r in records]
-
-        # DB has 0 real jobs: Automatically fetch Bu-Ul-Gyeong postings from Work24 API
-        api_key = os.environ.get("WORK24_API_KEY", "").strip()
-        if api_key:
-            from src.ingestion.sync_work24 import sync_from_work24
-            sync_from_work24(api_key=api_key, pages=1, display=25)
-            records = db.query(JobPostingRecord).all()
-            if records:
-                return [r.to_domain() for r in records]
     except Exception as err:
         print(f"DB/Work24 auto-sync error: {err}")
 
@@ -166,7 +164,10 @@ async def recommend_jobs(request: Request):
 
 @app.api_route("/sync", methods=["GET", "POST"])
 @app.api_route("/api/sync", methods=["GET", "POST"])
-def trigger_sync(secret: str = Query("", description="Sync protection secret")):
+def trigger_sync(
+    page: int = Query(0, description="Page to fetch (0 = auto next page)"),
+    secret: str = Query("", description="Sync protection secret"),
+):
     expected_secret = os.environ.get("SYNC_SECRET", "")
     if expected_secret and secret != expected_secret:
         return JSONResponse(status_code=403, content={"error": "Unauthorized sync secret"})
@@ -175,11 +176,26 @@ def trigger_sync(secret: str = Query("", description="Sync protection secret")):
     if not api_key:
         return JSONResponse(status_code=400, content={"error": "WORK24_API_KEY 환경 변수가 설정되지 않았습니다."})
 
+    # Determine next page automatically based on current DB count (each page across 3 regions = ~300 jobs)
+    target_page = page
+    if target_page <= 0:
+        try:
+            from src.db.database import SessionLocal
+            from src.db.models import JobPostingRecord
+            db = SessionLocal()
+            current_count = db.query(JobPostingRecord).count()
+            db.close()
+            target_page = (current_count // 250) + 1
+        except Exception:
+            target_page = 1
+
     from src.ingestion.sync_work24 import sync_from_work24
-    result = sync_from_work24(api_key=api_key, pages=1, display=25)
+    result = sync_from_work24(api_key=api_key, start_page=target_page, pages=1, display=100)
     return {
         "status": "success",
+        "page_fetched": target_page,
         "synced_count": result.get("saved", 0),
+        "total_in_db": result.get("total_in_db", 0),
         "errors": result.get("errors", []),
     }
 

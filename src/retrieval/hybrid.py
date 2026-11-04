@@ -95,7 +95,7 @@ def hybrid_search(
     query: str,
     region: str | None = None,
     *,
-    limit: int = 60,
+    limit: int = 300,
 ) -> list[HybridHit]:
     """Rank approved records; report field, channel, graph path, and evidence."""
     terms = _terms(query)
