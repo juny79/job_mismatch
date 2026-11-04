@@ -18,6 +18,10 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+# SQLite database
+*.db
+*.sqlite3
+
 # Test and tooling caches
 .pytest_cache/
 .mypy_cache/
