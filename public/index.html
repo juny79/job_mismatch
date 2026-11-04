@@ -630,47 +630,11 @@ async function updateJobFeed() {
   $('result-count').textContent = 'GraphRAG로 맞춤 공고를 탐색 중…';
 
   try {
-    // 1) 만약 최소 연봉이나 보유 기술 비교가 들어갔다면 /api/recommend + /api/search 결합
     const hasConditions = Boolean(state.region || state.role || state.skills.length || state.minSalary);
 
-    if (state.skills.length || state.minSalary) {
-      const recBody = {
-        region: state.region,
-        region_mode: state.region ? 'required' : 'ignore',
-        role_category: state.role,
-        role_mode: state.role ? 'preferred' : 'ignore',
-        required_skills: '',
-        preferred_skills: state.skills.join(', '),
-        preferred_benefits: '',
-        candidate_skills: state.skills.join(', '),
-        salary_minimum: state.minSalary,
-        salary_required: Boolean(state.minSalary),
-        employment_type: '',
-        employment_type_required: false,
-        work_mode: '',
-        work_mode_required: false,
-        experience: '',
-        experience_required: false
-      };
-      const r = await fetch('/api/recommend', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify(recBody)
-      });
-      const d = await r.json();
-      if (r.ok && d.results && d.results.length > 0) {
-        updateGraphBadge(d);
-        $('feed-heading').textContent = '🎯 챗봇 맞춤 추천 채용공고';
-        currentResultData = d;
-        renderJobCards();
-        return;
-      }
-    }
-
-    // 2) 기본 하이브리드 GraphRAG 검색
-    const queryTerms = [state.role, ...state.skills].filter(Boolean).join(' ');
+    // 1) 항상 전체/지역 기반 하이브리드 GraphRAG 풀을 먼저 가져옴 (0건 방지 및 유연한 랭킹)
     const params = new URLSearchParams({
-      q: queryTerms,
+      q: '',
       region: state.region,
       mode: 'hybrid'
     });
@@ -678,8 +642,105 @@ async function updateJobFeed() {
     const d = await r.json();
     updateGraphBadge(d);
     if (d.summary?.top_skills) topObservedSkills = d.summary.top_skills;
-    $('feed-heading').textContent = hasConditions ? '⚡ GraphRAG 조건 필터링 공고' : '실시간 부울경 전체 채용공고';
-    currentResultData = d;
+
+    let pool = d.results || [];
+
+    // 만약 특정 세부 지역(예: 창원)으로 0건이면 부울경 전체에서 창원 텍스트 포함 공고로 확대
+    if (pool.length === 0 && state.region) {
+      const rAll = await fetch('/api/search?mode=hybrid');
+      const dAll = await rAll.json();
+      pool = (dAll.results || []).filter(p =>
+        (p.region || '').includes(state.region) || (p.title || '').includes(state.region)
+      );
+      if (pool.length === 0) pool = dAll.results || [];
+    }
+
+    // 2) 챗봇 조건(직무/분야, 보유 기술, 희망 연봉)으로 각 공고의 매칭 점수와 일치/미기재 배지 계산
+    const roleTerms = state.role
+      ? state.role.split(/[\/,\s]+/).map(x => x.trim().toLowerCase()).filter(Boolean)
+      : [];
+    const userSkills = state.skills.map(x => x.trim().toLowerCase()).filter(Boolean);
+
+    const scored = pool.map(p => {
+      let matchScore = Number(p.score || 0);
+      const fullText = [p.title, p.region, p.role_category, p.experience, ...(p.skills || []), ...(p.benefits || [])].join(' ').toLowerCase();
+      const jobSkills = (p.skills || []);
+
+      // 직무/분야 매칭 가점
+      let roleMatched = false;
+      roleTerms.forEach(rt => {
+        if (fullText.includes(rt)) {
+          matchScore += 15;
+          roleMatched = true;
+        }
+      });
+
+      // 보유 기술 vs 공고 기술 비교
+      const matchedSkills = [];
+      const unlistedSkills = [];
+      userSkills.forEach(usk => {
+        if (fullText.includes(usk)) {
+          matchedSkills.push(usk);
+          matchScore += 20;
+        }
+      });
+      jobSkills.forEach(jsk => {
+        if (!userSkills.some(usk => jsk.toLowerCase().includes(usk) || usk.includes(jsk.toLowerCase()))) {
+          unlistedSkills.push(jsk);
+        } else if (!matchedSkills.includes(jsk)) {
+          matchedSkills.push(jsk);
+        }
+      });
+
+      let coverage = null;
+      if (userSkills.length > 0) {
+        if (jobSkills.length > 0) {
+          const hitCount = jobSkills.filter(jsk => userSkills.some(u => jsk.toLowerCase().includes(u) || u.includes(jsk.toLowerCase()))).length;
+          coverage = Math.round((hitCount / jobSkills.length) * 100);
+          if (coverage === 0 && matchedSkills.length > 0) coverage = 50;
+        } else if (matchedSkills.length > 0) {
+          coverage = 100;
+        }
+      }
+
+      // 연봉 조건 비교
+      let salaryOk = true;
+      if (state.minSalary) {
+        const minS = p.salary?.minimum;
+        if (minS != null && minS >= state.minSalary) {
+          matchScore += 15;
+        } else if (minS != null && minS < state.minSalary) {
+          salaryOk = false;
+          matchScore -= 10;
+        }
+      }
+
+      return {
+        ...p,
+        _matchScore: matchScore,
+        _roleMatched: roleMatched,
+        _salaryOk: salaryOk,
+        matched_profile_skills: matchedSkills,
+        unlisted_job_skills: unlistedSkills,
+        profile_skill_coverage: coverage
+      };
+    });
+
+    // 조건에 부합하는 공고를 우선 필터링하되, 너무 적으면 점수순 상위 공고를 함께 보여줌
+    let filtered = scored;
+    if (roleTerms.length > 0 || userSkills.length > 0) {
+      const strict = scored.filter(p => p._roleMatched || (p.matched_profile_skills && p.matched_profile_skills.length > 0));
+      if (strict.length > 0) filtered = strict;
+    }
+    if (state.minSalary) {
+      const salFiltered = filtered.filter(p => p._salaryOk);
+      if (salFiltered.length > 0) filtered = salFiltered;
+    }
+
+    filtered.sort((a, b) => b._matchScore - a._matchScore);
+
+    $('feed-heading').textContent = hasConditions ? '🎯 챗봇 맞춤 추천 채용공고' : '실시간 부울경 전체 채용공고';
+    currentResultData = { ...d, results: filtered };
     renderJobCards();
   } catch (err) {
     $('result-count').textContent = '오류: ' + err.message;

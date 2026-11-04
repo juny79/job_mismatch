@@ -43,6 +43,8 @@ def _get_active_postings_from_db(db: Session):
         db.query(JobPostingRecord).filter(JobPostingRecord.source_id == "DEMO-SYNTHETIC").delete()
         db.commit()
 
+        records = db.query(JobPostingRecord).all()
+
         # DB has < 100 real jobs: Automatically fetch 300 Bu-Ul-Gyeong postings from Work24 API
         if len(records) < 100:
             api_key = os.environ.get("WORK24_API_KEY", "").strip()
