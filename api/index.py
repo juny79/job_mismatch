@@ -12,9 +12,8 @@ from sqlalchemy.orm import Session
 
 from src.db.database import get_db, init_db
 from src.db.models import JobPostingRecord
-from src.retrieval.recommend import recommend
-from src.retrieval.search import search, summary
-from src.retrieval.hybrid import hybrid_search
+from src.app.web import build_search_payload, build_recommendation_payload
+from src.ingestion.quality import quality_report
 
 # Initialize database tables
 init_db()
@@ -32,45 +31,19 @@ app.add_middleware(
 TEMPLATES_DIR = Path(__file__).resolve().parent.parent / "src" / "app" / "templates"
 
 
-def _to_posting_result(posting: Any) -> dict[str, Any]:
-    return {
-        "posting_id": posting.posting_id,
-        "title": posting.title,
-        "region": posting.region,
-        "role_category": posting.role_category,
-        "recruitment_status": posting.recruitment_status,
-        "expires_at": posting.expires_at,
-        "updated_at": posting.updated_at,
-        "employment_type": posting.employment_type,
-        "work_mode": posting.work_mode,
-        "experience": posting.experience,
-        "skills": list(posting.required_skills),
-        "benefits": list(posting.benefits),
-        "salary": {
-            "raw": posting.salary.raw,
-            "status": posting.salary.status,
-            "minimum": posting.salary.minimum,
-            "maximum": posting.salary.maximum,
-            "unit": posting.salary.unit,
-        },
-        "source": {
-            "id": posting.source_id,
-            "name": posting.source_name,
-            "record_id": posting.source_record_id,
-            "url": posting.source_url,
-            "posted_at": posting.posted_at,
-            "updated_at": posting.updated_at,
-            "checked_at": posting.collected_at,
-        },
-        "evidence": [
-            {"field": item.field, "quote": item.quote, "locator": item.locator}
-            for item in posting.evidence
-        ],
-    }
-
-
 def _get_active_postings_from_db(db: Session):
     records = db.query(JobPostingRecord).all()
+    if not records:
+        # Fallback to demo JSONL if database is currently empty
+        from src.ingestion.jsonl import load_jsonl
+        demo_path = Path(__file__).resolve().parent.parent / "data" / "demo_jobs.jsonl"
+        if demo_path.exists():
+            postings, _ = load_jsonl(demo_path, allow_synthetic=True)
+            for p in postings:
+                rec = JobPostingRecord.from_domain(p)
+                db.merge(rec)
+            db.commit()
+            return postings
     return [r.to_domain() for r in records]
 
 
@@ -95,25 +68,20 @@ def health_check(db: Session = Depends(get_db)):
 @app.get("/api/search")
 def search_jobs(
     q: str = Query("", description="Search keyword"),
+    region: str = Query("", description="Region filter"),
     mode: str = Query("hybrid", description="lexical, graph, or hybrid"),
     db: Session = Depends(get_db),
 ):
     postings = _get_active_postings_from_db(db)
-    if not postings:
-        return {"query": q, "mode": mode, "total": 0, "results": []}
 
-    if mode == "hybrid":
-        results = hybrid_search(q, postings)
-    else:
-        results = search(q, postings)
-
-    formatted = [_to_posting_result(p) for p in results]
-    return {
-        "query": q,
-        "mode": mode,
-        "total": len(formatted),
-        "results": formatted,
-    }
+    payload = build_search_payload(
+        postings=postings,
+        rejected=[],
+        query=q,
+        region=region,
+        graph=mode,
+    )
+    return payload
 
 
 @app.post("/api/recommend")
@@ -121,11 +89,13 @@ async def recommend_jobs(
     request: Request,
     db: Session = Depends(get_db),
 ):
-    payload = await request.json()
-    postings = _get_active_postings_from_db(db)
-
-    results = recommend(payload, postings)
-    return results
+    try:
+        preferences = await request.json()
+        postings = _get_active_postings_from_db(db)
+        payload = build_recommendation_payload(postings, preferences)
+        return payload
+    except Exception as exc:
+        return JSONResponse(status_code=400, content={"error": str(exc)})
 
 
 @app.post("/api/sync")
