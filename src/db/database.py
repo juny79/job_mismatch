@@ -9,7 +9,11 @@ from pathlib import Path
 from sqlalchemy import create_engine
 from sqlalchemy.orm import declarative_base, sessionmaker
 
-DATABASE_URL = os.environ.get("DATABASE_URL", "").strip()
+DATABASE_URL = (
+    os.environ.get("DATABASE_URL", "").strip()
+    or os.environ.get("POSTGRES_URL", "").strip()
+    or os.environ.get("POSTGRES_PRISMA_URL", "").strip()
+)
 
 if not DATABASE_URL:
     # Local fallback to sqlite
