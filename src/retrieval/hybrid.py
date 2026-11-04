@@ -71,17 +71,36 @@ def _graph_matches(graph: JobGraph, query_terms: tuple[str, ...]) -> dict[str, l
     return matches
 
 
+def _all_posting_graph_paths(graph: JobGraph) -> dict[str, list[dict[str, object]]]:
+    paths_by_posting: dict[str, list[dict[str, object]]] = {}
+    for edge in graph.edges:
+        if edge.relationship not in {"HAS_ROLE", "LOCATED_IN", "REQUIRES_SKILL", "OFFERS_BENEFIT", "POSTED_JOB"}:
+            continue
+        endpoint_id = edge.source_id if edge.relationship == "POSTED_JOB" else edge.target_id
+        endpoint = graph.nodes.get(endpoint_id)
+        if not endpoint:
+            continue
+        paths_by_posting.setdefault(edge.posting_id, []).append({
+            "relationship": edge.relationship,
+            "label": endpoint.label,
+            "matched_terms": (),
+            "evidence": tuple(edge.evidence),
+            "synthetic": edge.synthetic,
+        })
+    return paths_by_posting
+
+
 def hybrid_search(
     postings: list[JobPosting],
     query: str,
     region: str | None = None,
     *,
-    limit: int = 20,
+    limit: int = 60,
 ) -> list[HybridHit]:
     """Rank approved records; report field, channel, graph path, and evidence."""
     terms = _terms(query)
     graph = build_job_graph(postings)
-    graph_matches = _graph_matches(graph, terms)
+    graph_matches = _graph_matches(graph, terms) if terms else _all_posting_graph_paths(graph)
     hits: list[HybridHit] = []
 
     for posting in postings:
@@ -110,15 +129,18 @@ def hybrid_search(
         if terms and not matched_terms:
             continue
         if not terms:
-            score = 0.0
+            score = float(len(paths))
         fields = tuple(sorted({field for matches in term_fields.values() for field in matches}))
         channels = tuple(channel for channel, present in (
             ("lexical", any(not field.startswith("graph:") for field in fields)),
             ("graph", bool(paths)),
         ) if present)
-        relevant_evidence = tuple(
-            item for item in posting.evidence
-            if item.field in fields or any(item.field in _path_evidence_fields(path["relationship"]) for path in paths)
+        relevant_evidence = (
+            tuple(
+                item for item in posting.evidence
+                if item.field in fields or any(item.field in _path_evidence_fields(path["relationship"]) for path in paths)
+            )
+            if terms else posting.evidence
         )
         hits.append(HybridHit(
             posting=posting,

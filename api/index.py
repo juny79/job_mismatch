@@ -35,24 +35,65 @@ def _read_index_html() -> str:
 
 def _get_active_postings_from_db(db: Session):
     try:
+        from src.db.database import init_db
         from src.db.models import JobPostingRecord
+        init_db()
+
+        # Remove any legacy synthetic demo records if present
+        db.query(JobPostingRecord).filter(JobPostingRecord.source_id == "DEMO-SYNTHETIC").delete()
+        db.commit()
+
         records = db.query(JobPostingRecord).all()
         if records:
             return [r.to_domain() for r in records]
-    except Exception as err:
-        print(f"DB query error: {err}")
 
-    # Fallback to demo JSONL
-    try:
-        from src.ingestion.jsonl import load_jsonl
-        demo_path = Path(__file__).resolve().parent.parent / "data" / "demo_jobs.jsonl"
-        if demo_path.exists():
-            postings, _ = load_jsonl(demo_path, allow_synthetic=True)
-            return postings
+        # DB has 0 real jobs: Automatically fetch Bu-Ul-Gyeong postings from Work24 API
+        api_key = os.environ.get("WORK24_API_KEY", "").strip()
+        if api_key:
+            from src.ingestion.sync_work24 import sync_from_work24
+            sync_from_work24(api_key=api_key, pages=1, display=25)
+            records = db.query(JobPostingRecord).all()
+            if records:
+                return [r.to_domain() for r in records]
     except Exception as err:
-        print(f"JSONL fallback error: {err}")
+        print(f"DB/Work24 auto-sync error: {err}")
 
     return []
+
+
+def _enrich_with_graph_stats(payload: dict[str, Any], postings: list[Any]) -> dict[str, Any]:
+    from src.retrieval.graphrag import build_job_graph, graph_summary
+    graph = build_job_graph(postings)
+    g_sum = graph_summary(graph)
+    kind_counts: dict[str, int] = {}
+    for node in graph.nodes.values():
+        kind_counts[node.kind] = kind_counts.get(node.kind, 0) + 1
+    rel_counts: dict[str, int] = {}
+    for edge in graph.edges:
+        rel_counts[edge.relationship] = rel_counts.get(edge.relationship, 0) + 1
+
+    # Sample top graph edges for visual inspection
+    sample_triples = []
+    for edge in graph.edges[:24]:
+        s_node = graph.nodes.get(edge.source_id)
+        t_node = graph.nodes.get(edge.target_id)
+        if s_node and t_node and edge.relationship != "FROM_SOURCE":
+            sample_triples.append({
+                "source": s_node.label,
+                "source_kind": s_node.kind,
+                "relationship": edge.relationship,
+                "target": t_node.label,
+                "target_kind": t_node.kind,
+            })
+
+    payload["graph_stats"] = {
+        "node_count": g_sum["node_count"],
+        "edge_count": g_sum["relationship_count"],
+        "node_kinds": kind_counts,
+        "relationship_kinds": rel_counts,
+        "sample_triples": sample_triples[:12],
+    }
+    return payload
 
 
 @app.api_route("/health", methods=["GET", "POST"])
@@ -100,7 +141,7 @@ def search_jobs(
             region=region,
             graph=mode,
         )
-        return payload
+        return _enrich_with_graph_stats(payload, postings)
     finally:
         db.close()
 
@@ -116,7 +157,7 @@ async def recommend_jobs(request: Request):
     try:
         postings = _get_active_postings_from_db(db)
         payload = build_recommendation_payload(postings, preferences)
-        return payload
+        return _enrich_with_graph_stats(payload, postings)
     except Exception as exc:
         return JSONResponse(status_code=400, content={"error": str(exc)})
     finally:
@@ -143,7 +184,6 @@ def trigger_sync(secret: str = Query("", description="Sync protection secret")):
     }
 
 
-# Catch-all route: Any other route returns index.html or debug info
 @app.api_route("/{full_path:path}", methods=["GET", "POST"])
 def catch_all(request: Request, full_path: str):
     if "api" in full_path or "health" in full_path:
