@@ -1,6 +1,8 @@
 # Local secrets and configuration
 *.yaml
 .env
+.env.*
+!.env.example
 
 # Unapproved or sensitive datasets/exports; keep only synthetic fixtures and blank templates
 /data/raw/
